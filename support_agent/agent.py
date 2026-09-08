@@ -12,7 +12,7 @@ import os
 
 from google.adk.agents import LlmAgent
 
-from .mock_infra import get_function_metrics, get_recent_logs
+from .policy import get_function_metrics, get_recent_logs
 
 MODEL = os.environ.get("SUPPORT_AGENT_MODEL", "gemini-3.8-flash")
 
@@ -33,6 +33,9 @@ Rules you must not break:
   result. If a tool did not tell you something, you do not know it.
 - If the tools contradict the customer's description, report the
   contradiction rather than smoothing it over.
+- If `get_recent_logs` returns `skipped_by_policy`, that is not a failure
+  and not evidence of a fault. It means the metrics were healthy enough
+  that logs were not worth retrieving. Answer from the metrics.
 - Answer in the language the ticket was written in.
 """
 
