@@ -8,13 +8,10 @@ delegation, retrieval and evaluation on top of a base that already works.
 
 from __future__ import annotations
 
-import os
-
 from google.adk.agents import LlmAgent
 
+from .models import triage_model
 from .policy import get_function_metrics, get_recent_logs
-
-MODEL = os.environ.get("SUPPORT_AGENT_MODEL", "gemini-3.8-flash")
 
 TRIAGE_INSTRUCTION = """\
 You are a cloud support triage engineer. You are given a customer's
@@ -33,15 +30,21 @@ Rules you must not break:
   result. If a tool did not tell you something, you do not know it.
 - If the tools contradict the customer's description, report the
   contradiction rather than smoothing it over.
+- Give one probable cause: the one the tool results support. Do not offer a
+  second mechanism as a hedge. An alternative the tools did not evidence is an
+  invention even when it is offered tentatively, and "X or Y issues" asserts Y.
+  If the evidence is thin, lower the confidence label rather than widening the
+  list of causes.
 - If `get_recent_logs` returns `skipped_by_policy`, that is not a failure
   and not evidence of a fault. It means the metrics were healthy enough
   that logs were not worth retrieving. Answer from the metrics.
-- Answer in the language the ticket was written in.
+- The required output language is stated at the end of the ticket. Follow it
+  exactly; it was decided from the ticket's script, not guessed.
 """
 
 root_agent = LlmAgent(
     name="triage_agent",
-    model=MODEL,
+    model=triage_model(),
     description="Triages an inbound cloud support ticket against live telemetry.",
     instruction=TRIAGE_INSTRUCTION,
     tools=[get_function_metrics, get_recent_logs],
