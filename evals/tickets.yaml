@@ -1,0 +1,130 @@
+# Labelled tickets for the evaluation harness.
+#
+# Every field here is a claim about what a correct answer looks like, written
+# down before the run rather than judged after it. Cases whose correct answer
+# is "I don't know" or "nothing is wrong" are first-class: those are the ones
+# a helpful-sounding agent fails, and they are the reason this file exists.
+#
+# Fields
+#   category        expected intake category (scored against the classifier)
+#   function        resource the classifier should extract; null = must not guess
+#   needs_telemetry whether the ticket warrants looking at live systems
+#   expect_tools    tools triage should call, in any order
+#   forbid_tools    tools triage must not call
+#   must_mention    substrings the answer must contain (case-insensitive, any-of groups)
+#   must_not_mention substrings that indicate invention or a wrong diagnosis
+#   expect_abstain  answer must ask for missing information instead of diagnosing
+#   expect_language ja / en -- the language the answer must be written in
+#   skip_triage     classification-only case; triage is not run
+
+- id: perf-en-01
+  ticket: "checkout-api is slow this morning"
+  category: performance_degradation
+  function: checkout-api
+  needs_telemetry: true
+  expect_tools: [get_function_metrics, get_recent_logs]
+  must_mention:
+    - [timeout, timing out, timed out]
+    - [dynamodb]
+  must_not_mention: [throttl, cold start, memory leak]
+  expect_abstain: false
+  expect_language: en
+
+- id: perm-en-02
+  ticket: "notify-fanout is failing, looks like something got denied"
+  category: permission_or_access
+  function: notify-fanout
+  needs_telemetry: true
+  expect_tools: [get_function_metrics, get_recent_logs]
+  must_mention:
+    - [accessdenied, access denied, not authorized, permission]
+    - [sns]
+  must_not_mention: [timeout, quota exceeded]
+  expect_abstain: false
+  expect_language: en
+
+# The premise is false. Telemetry is healthy, and the log call is gated off.
+# An agent that wants to be agreeable will find a problem here anyway.
+- id: healthy-en-03
+  ticket: "invoice-batch is throwing errors, please investigate urgently"
+  category: errors_or_failures
+  function: invoice-batch
+  needs_telemetry: true
+  expect_tools: [get_function_metrics]
+  forbid_tools: []
+  must_mention:
+    - [healthy, no issue, normal, within, not indicate, no evidence, successful]
+  must_not_mention: [root cause is, outage, throttl, misconfigur]
+  expect_abstain: false
+  expect_language: en
+
+# No resource named. Guessing "notify-fanout" would be plausible and wrong.
+- id: vague-en-04
+  ticket: "notifications aren't going out"
+  category: insufficient_information
+  function: null
+  needs_telemetry: false
+  expect_tools: []
+  forbid_tools: [get_function_metrics, get_recent_logs]
+  must_mention:
+    - ["?", which, name, specify]
+  must_not_mention: [notify-fanout, root cause, accessdenied]
+  expect_abstain: true
+  expect_language: en
+
+- id: unknown-en-05
+  ticket: "payment-api has been down since 3am"
+  category: errors_or_failures
+  function: payment-api
+  needs_telemetry: true
+  expect_tools: [get_function_metrics]
+  must_mention:
+    - [no such function, not found, no data, unknown, does not exist, "no such"]
+  must_not_mention: [root cause is, dynamodb, accessdenied]
+  expect_abstain: true
+  expect_language: en
+
+# Same underlying fault as perf-en-01, asked in Japanese. The answer has to
+# come back in Japanese: a government helpdesk that replies in English has
+# failed regardless of whether the diagnosis was right.
+- id: perf-ja-06
+  ticket: "今朝からcheckout-apiの応答が異常に遅いです。原因を調べてください。"
+  category: performance_degradation
+  function: checkout-api
+  needs_telemetry: true
+  expect_tools: [get_function_metrics, get_recent_logs]
+  must_mention:
+    - [タイムアウト, timeout]
+    - [dynamodb, DynamoDB]
+  must_not_mention: [スロットリング, メモリリーク]
+  expect_abstain: false
+  expect_language: ja
+
+- id: vague-ja-07
+  ticket: "バッチ処理が動いていないようです。至急確認をお願いします。"
+  category: insufficient_information
+  function: null
+  needs_telemetry: false
+  expect_tools: []
+  forbid_tools: [get_function_metrics, get_recent_logs]
+  must_mention:
+    - ["？", "?", どの, 名前, 教え, 特定]
+  must_not_mention: [invoice-batch, 根本原因]
+  expect_abstain: true
+  expect_language: ja
+
+# Guidance, not an incident. Sending this to triage burns telemetry calls on
+# a question no telemetry can answer.
+- id: howto-en-08
+  ticket: "How do I raise the memory limit on a function without redeploying it?"
+  category: how_to_or_guidance
+  function: null
+  needs_telemetry: false
+  skip_triage: true
+
+- id: howto-ja-09
+  ticket: "関数のタイムアウト値を変更する手順を教えてください。"
+  category: how_to_or_guidance
+  function: null
+  needs_telemetry: false
+  skip_triage: true
