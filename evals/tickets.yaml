@@ -78,8 +78,16 @@
   function: payment-api
   needs_telemetry: true
   expect_tools: [get_function_metrics]
+  # Widened after a run conveyed the fact as "no function with that exact name
+  # exists" and was scored as a miss. The check verifies that the agent reported
+  # the resource as unfound, not that it used one particular wording. Widening a
+  # substring group as models rephrase is the standing cost of refusing a judge
+  # model, and it is the cheaper of the two costs -- a judge forms fresh opinions
+  # on every run, and then the suite's own verdicts drift.
   must_mention:
-    - [no such function, not found, no data, unknown, does not exist, "no such"]
+    - [no such function, not found, no data, unknown, does not exist,
+       "doesn't exist", not exist, no function, "no such", could not find,
+       "couldn't find", cannot find, "wasn't found", was not found]
   must_not_mention: [root cause is, dynamodb, accessdenied]
   expect_abstain: true
   expect_language: en
