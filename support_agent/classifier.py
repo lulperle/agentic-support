@@ -11,13 +11,31 @@ than surfacing later as a confidently wrong diagnosis.
 
 from __future__ import annotations
 
-import os
 from enum import Enum
 
 from google.adk.agents import LlmAgent
 from pydantic import BaseModel, Field
 
-MODEL = os.environ.get("SUPPORT_AGENT_CLASSIFIER_MODEL", "gemini-3.8-flash")
+from .models import intake_model
+
+
+class UrgencyClaim(str, Enum):
+    """How fast the customer says they need it.
+
+    An enum rather than a 1-4 integer, for two reasons. Bedrock's structured
+    output rejects `minimum`/`maximum` on an integer field, which Gemini
+    accepted -- so a constrained int is not portable across the providers a
+    government desk actually runs on. And the values carry their own meaning,
+    where "2" needs a lookup table to read.
+
+    Values are kept identical to `sla.Urgency` so the AI stage and the policy
+    stage need no translation between them; a test asserts they stay in sync.
+    """
+
+    CRITICAL = "critical"
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
 
 
 class Category(str, Enum):
@@ -43,12 +61,14 @@ class Triage(BaseModel):
     )
     needs_telemetry: bool = Field(
         description=(
-            "Whether answering requires looking at the customer's live telemetry. "
-            "False for how-to questions and for tickets too vague to act on."
+            "Whether telemetry can be looked up *right now*, from this ticket "
+            "alone. False if no resource is named -- there is nothing to query "
+            "yet, however useful telemetry would be once the customer answers. "
+            "False for how-to questions, which no telemetry can answer."
         )
     )
-    urgency: int = Field(
-        ge=1, le=4, description="1 = highest, 4 = lowest. Judge from the text only."
+    urgency: UrgencyClaim = Field(
+        description="What the customer is claiming, judged from the text only."
     )
     rationale: str = Field(
         description="One sentence, citing the words in the ticket that decided it."
@@ -67,6 +87,14 @@ you are deciding where this ticket should go, not what is wrong with it.
   out"), leave it null and classify as insufficient_information. Inferring
   which system they probably meant is the single most expensive mistake
   available to you here, because everything downstream will trust it.
+- Categories overlap, so prefer the most specific one the ticket supports. A
+  permission denial is also a failure; if the ticket indicates a denial, refused
+  access or an authorisation problem, it is `permission_or_access` rather than
+  the broader `errors_or_failures`. Use `errors_or_failures` when the ticket
+  reports something breaking without indicating what kind of break it is.
+- `needs_telemetry` asks whether there is something to query *now*, not whether
+  telemetry would eventually help. No resource named means nothing to query, so
+  it is false. If `function_name` is null, `needs_telemetry` is false.
 - `urgency` reflects what the customer is claiming, not what is true. You have
   not checked anything yet.
 - Do not diagnose. "Probably a timeout" is not a category.
@@ -74,7 +102,7 @@ you are deciding where this ticket should go, not what is wrong with it.
 
 classifier_agent = LlmAgent(
     name="intake_classifier",
-    model=MODEL,
+    model=intake_model(),
     description="Classifies an inbound support ticket from its text alone.",
     instruction=CLASSIFIER_INSTRUCTION,
     output_schema=Triage,
