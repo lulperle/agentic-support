@@ -34,11 +34,21 @@ be believed.
 ticket text
     │
     ▼
-┌─────────────────────────────┐
-│ triage_agent (LlmAgent)     │
-│  instruction: grounding     │
-│  rules + triage procedure   │
-└──────────┬──────────────────┘
+┌──────────────────────────────┐
+│ intake_classifier            │  no tools, structured output:
+│  text only, no telemetry     │  category / resource / urgency
+└──────────┬───────────────────┘
+           ▼
+     ┌───────────────┐   nothing to look up
+     │ pipeline gate │──────────────────────▶ ask for the resource,
+     └───────┬───────┘                        or answer from the guide
+             │ resource named
+             ▼
+┌──────────────────────────────┐
+│ triage_agent (LlmAgent)      │
+│  grounding rules +           │
+│  triage procedure            │
+└──────────┬───────────────────┘
            │ tool-calling loop
      ┌─────┴──────┐
      ▼            ▼
@@ -47,10 +57,18 @@ _metrics       _logs
      │            │
      └─────┬──────┘
            ▼
+     policy.py          ← ordering + not_found rules live here
+           │
+           ▼
     mock_infra.py
   (stands in for the
    customer's own APIs)
 ```
+
+Intake runs first and cheaply: text only, no tools to misuse, output a fixed enum
+that can be scored against labels. Triage is the expensive stage, and the gate
+decides whether a ticket earns it. Splitting them means a misrouted ticket shows
+up as a misroute instead of surfacing later as a confidently wrong diagnosis.
 
 The agent is told to reach for metrics first and to pull logs *only* if the
 metrics suggest something is actually wrong. Cheap signal before expensive
@@ -142,16 +160,22 @@ the grounding rule holds and the cost-ordering rule doesn't, at least not
 reliably. Instructions are not a control plane; you get compliance in proportion
 to how much the model already wanted to comply.
 
-This is the kind of thing the evaluation suite below exists to catch, and the
-reason tool-gating eventually belongs in code rather than in a prompt.
+That gap is what prompted everything in [Measuring it](#measuring-it) below.
 
 ## Model
 
-Defaults to `gemini-3.8-flash`. Override without touching the code:
+Defaults to `gemini-3.8-flash`. Override either stage without touching the code:
 
 ```bash
-SUPPORT_AGENT_MODEL=gemini-3.8-pro uv run python -m scripts.ask "..."
+SUPPORT_AGENT_MODEL=<model> uv run python -m scripts.ask "..."
+SUPPORT_AGENT_CLASSIFIER_MODEL=<model> uv run python -m evals.run
 ```
+
+Intake and triage are configured separately on purpose: classification is a
+cheap fixed-output task and does not need the model that triage needs.
+
+Be aware of the free-tier limit — 20 requests per day per model — if you plan to
+run the eval suite more than once.
 
 `GOOGLE_GENAI_USE_VERTEXAI=TRUE` in `.env` runs the same agent against Vertex AI
 instead of the Gemini API directly.
@@ -160,23 +184,103 @@ instead of the Gemini API directly.
 
 ```
 support_agent/
-  agent.py        the agent: model, instruction, tool wiring
+  classifier.py   intake: text-only classification, structured output
+  pipeline.py     the gate: does this ticket earn a triage run?
+  agent.py        triage: model, instruction, tool wiring
+  policy.py       tool-access rules the agent cannot talk its way past
   mock_infra.py   the only file that knows what the backing systems are
 scripts/
   ask.py          CLI runner -- prints the tool trace and token cost
+evals/
+  tickets.yaml    labelled tickets, expectations written before the run
+  run.py          harness -- scores both stages, reports cost
 ```
+
+## Measuring it
+
+```bash
+uv run python -m evals.run                    # whole suite
+uv run python -m evals.run --only vague-en-04 # one ticket
+uv run python -m evals.run --json out.json    # machine-readable
+```
+
+[`evals/tickets.yaml`](evals/tickets.yaml) holds labelled tickets. Each one
+records, *before* the run, what a correct answer looks like: the expected intake
+category, which tools triage should and should not call, substrings that would
+prove the agent invented a mechanism, and whether the correct answer is a
+question rather than a diagnosis. Cases whose right answer is "nothing is wrong"
+or "I don't know" are first-class — those are the ones a helpful-sounding agent
+fails.
+
+No judge model is involved. Every check is a deterministic comparison against a
+written-down expectation, so a regression is a number moving rather than an
+opinion changing. Scored dimensions:
+
+| Dimension | What it catches |
+|---|---|
+| intake category / resource extraction | tickets routed to the wrong place |
+| tool discipline | calls that shouldn't have happened, and vice versa |
+| groundedness proxy | mechanisms asserted that no tool reported |
+| abstention | diagnosing when it should have asked |
+| answer language | replying in English to a Japanese ticket |
+| tokens & tool calls per ticket | what the above costs |
+
+### What it found
+
+Two defects, both of which had been invisible in ad-hoc testing:
+
+**Guessing the resource.** On `notifications aren't going out` the classifier was
+right — `function_name: null`, `needs_telemetry: false`. Triage, run on the raw
+ticket, guessed `notify-fanout` and pulled its metrics anyway. The instruction
+telling it not to guess was already there; it lost to having a tool, a plausible
+candidate, and a customer who wants an answer.
+
+**Substituting a neighbour.** Asked about `payment-api`, which doesn't exist,
+the agent received `known_functions: [checkout-api, …]` in the `not_found`
+payload, picked `checkout-api`, and reported its DynamoDB timeouts as the
+answer — a correct diagnosis of a system nobody asked about, delivered with
+confidence. The helpful error message was the cause.
+
+### What changed as a result
+
+Both fixes move the constraint somewhere the model can't reach:
+
+- [`policy.py`](support_agent/policy.py) gates log retrieval on the metrics
+  being out of band, and strips the list of valid names out of `not_found`
+  results. The agent is told what it doesn't have, not what it could have had
+  instead.
+- [`pipeline.py`](support_agent/pipeline.py) makes the classifier's decision
+  binding: if intake says there's nothing to look up, triage never runs.
+
+`mock_infra.py` stays a faithful stand-in for the customer's systems and knows
+about none of this.
+
+### Honest status
+
+The routing, the gate, and the `not_found` reshaping are unit-verified and pass.
+The full suite has **not** been re-run end to end since those fixes: the Gemini
+free tier allows 20 requests per day per model and the suite needs more than
+that, so the numbers below are pending rather than claimed.
+
+What is measured so far: the log gate works — on `invoice-batch` the agent still
+*attempts* the log call but gets `skipped_by_policy` and answers from the metrics.
+Note what that does and doesn't buy. Grounding is protected; the call count isn't
+reduced, because the request still goes out. Cutting cost needs the intake gate,
+not the tool gate.
 
 ## Where this is going
 
 Roughly in the order the complexity is worth it:
 
-- **Delegation** — split triage from remediation, so the agent that proposes a
-  fix isn't the one that decided what's broken.
+- **Finish the baseline** — one complete suite run on a quota that allows it, so
+  the pass rate and cost per ticket are numbers rather than intentions.
 - **Retrieval over runbooks** — the log lines above are recognisable to someone
   who has seen them before. That knowledge lives in runbooks, not in weights.
-- **Evaluation** — a fixed set of tickets with known answers, including the
-  tickets whose correct answer is "I don't know". Ungrounded confidence should
-  fail the suite, not just read badly.
+- **Delegation** — split triage from remediation, so the agent that proposes a
+  fix isn't the one that decided what's broken.
+- **FAQ candidates from clusters** — tickets that recur are documentation debt.
+  Grouping them by intake category over time is the cheapest way to see which
+  guide page is missing.
 
 ## License
 
