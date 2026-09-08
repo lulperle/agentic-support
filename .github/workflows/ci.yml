@@ -1,0 +1,46 @@
+name: ci
+
+# The eval suite is deliberately not run here. It needs model credentials and it
+# is non-deterministic, so putting it on every push would either leak a key into
+# CI or make the build fail for reasons unrelated to the commit. What CI can
+# guarantee is that the deterministic half -- the priority matrix, the
+# business-hours clock, the quality scorecard and the suite's own scoring logic
+# -- is correct, and that the graders the agent is judged against still work.
+#
+# The agent evals run against Bedrock on demand (`--repeat 5`) and their numbers
+# go in the README with the run count attached.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        # uv reads requires-python from pyproject and fetches a matching
+        # interpreter, so the version lives in one place.
+        run: uv sync --all-extras
+
+      - name: Run tests
+        run: uv run pytest -q
+
+      - name: Check the eval suite still imports
+        # tickets.yaml is parsed and the agents are constructed, so a broken
+        # label file or a bad model id fails here rather than halfway through a
+        # paid run.
+        run: uv run python -c "import evals.run, support_agent.agent, support_agent.classifier"
+        env:
+          # No key is needed to build the objects; this stops the import path
+          # from tripping over a missing variable.
+          GOOGLE_API_KEY: not-a-real-key

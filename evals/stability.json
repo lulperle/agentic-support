@@ -1,0 +1,2611 @@
+{
+  "models": "backend=bedrock triage=bedrock/converse/us.anthropic.claude-sonnet-5 intake=bedrock/converse/us.anthropic.claude-haiku-4-5-20251001-v1:0",
+  "repeat": 5,
+  "pass_rates": [
+    1.0,
+    1.0,
+    1.0,
+    0.9885057471264368,
+    1.0
+  ],
+  "unstable_checks": [
+    {
+      "ticket": "unknown-en-05",
+      "check": "abstains",
+      "passes": 4,
+      "runs": 5
+    }
+  ],
+  "runs": [
+    [
+      {
+        "id": "perf-en-01",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want performance_degradation, got performance_degradation"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want 'checkout-api', got 'checkout-api'"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want True, got True"
+          },
+          {
+            "check": "calls:get_function_metrics",
+            "passed": true,
+            "detail": "called ['get_function_metrics', 'get_recent_logs']"
+          },
+          {
+            "check": "calls:get_recent_logs",
+            "passed": true,
+            "detail": "called ['get_function_metrics', 'get_recent_logs']"
+          },
+          {
+            "check": "no_invented_cause:throttl",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:cold start",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:memory leak",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "mentions:timeout",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "mentions:dynamodb",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "language:en",
+            "passed": true,
+            "detail": "not English: ## Triage Summary — checkout-api\n\n**1. Function identified:*"
+          }
+        ],
+        "tokens": 6598,
+        "tool_calls": 2,
+        "classification": "{\"category\": \"performance_degradation\", \"function_name\": \"checkout-api\", \"needs_telemetry\": true, \"urgency\": \"high\", \"rationale\": \"The customer reports that checkout-api is slow this morning, indicating a performance degradation with an implicit sense of urgency given the business-critical nature of checkout systems.\"}",
+        "answer": "## Triage Summary — checkout-api\n\n**1. Function identified:** `checkout-api` (named explicitly in the ticket).\n\n**2. Metrics:**\n- Invocations: 128,400\n- Error rate: 8.1% (elevated)\n- p99 latency: 9,850 ms (very high)\n\n**3. Logs (pulled because metrics were unhealthy):**\n- `Task timed out after 10.00 seconds` — function is hitting its timeout ceiling\n- Memory usage was fine (498 MB / 512 MB used) — not a memory exhaustion issue\n- `[ERROR] ConnectTimeoutError: Connect timeout on endpoint URL: https://dynamodb.ap-northeast-1.amazonaws.com/`\n\n**4. Probable root cause:**\nThe function is timing out (10s ceiling hit) while attempting to connect to DynamoDB in `ap-northeast-1`, causing both the high p99 latency and the elevated error rate. This is consistent with a downstream connectivity/availability problem with the DynamoDB endpoint rather than an issue in the checkout-api code itself.\n\n**Confidence: high** — both the latency and error metrics are directly corroborated by the log evidence (timeout errors tied specifically to the DynamoDB connection attempt).\n\n**Note on the report:** The customer described this as merely \"slow,\" but the data shows outright timeouts and an 8.1% error rate — this is worse than a slowdown; requests are failing outright, not just running late."
+      },
+      {
+        "id": "perm-en-02",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want permission_or_access, got permission_or_access"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want 'notify-fanout', got 'notify-fanout'"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want True, got True"
+          },
+          {
+            "check": "calls:get_function_metrics",
+            "passed": true,
+            "detail": "called ['get_function_metrics', 'get_recent_logs']"
+          },
+          {
+            "check": "calls:get_recent_logs",
+            "passed": true,
+            "detail": "called ['get_function_metrics', 'get_recent_logs']"
+          },
+          {
+            "check": "no_invented_cause:timeout",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:quota exceeded",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "mentions:accessdenied",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "mentions:sns",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "language:en",
+            "passed": true,
+            "detail": "not English: ## Triage Summary: notify-fanout\n\n**Metrics:**\n- Invocations"
+          }
+        ],
+        "tokens": 6348,
+        "tool_calls": 2,
+        "classification": "{\"category\": \"permission_or_access\", \"function_name\": \"notify-fanout\", \"needs_telemetry\": true, \"urgency\": \"high\", \"rationale\": \"The ticket names 'notify-fanout' as the failing resource and explicitly indicates 'something got denied', pointing to a permission or access issue rather than a generic failure.\"}",
+        "answer": "## Triage Summary: notify-fanout\n\n**Metrics:**\n- Invocations: 45,900\n- Error rate: 31.1% (elevated)\n- p99 latency: 640 ms\n\n**Logs:** Recent errors show repeated `AccessDenied: User is not authorized to perform sns:Publish`, followed by retry exhaustion (attempt 3/3).\n\n**Root Cause:** The function's execution role/user lacks the IAM permission `sns:Publish`, causing a significant fraction of invocations to fail with AccessDenied errors. This matches the customer's description of \"something got denied.\"\n\n**Confidence:** High — the elevated error rate is directly corroborated by explicit AccessDenied log entries for the exact API call (`sns:Publish`) the function is presumably using to fan out notifications.\n\n**Recommended action:** Review and update the IAM policy attached to notify-fanout's execution role to grant `sns:Publish` permission on the target topic(s)."
+      },
+      {
+        "id": "healthy-en-03",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want errors_or_failures, got errors_or_failures"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want 'invoice-batch', got 'invoice-batch'"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want True, got True"
+          },
+          {
+            "check": "calls:get_function_metrics",
+            "passed": true,
+            "detail": "called ['get_function_metrics', 'get_recent_logs']"
+          },
+          {
+            "check": "no_invented_cause:root cause is",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:outage",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:throttl",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:misconfigur",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "mentions:healthy",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "language:en",
+            "passed": true,
+            "detail": "not English: ## Triage Result: `invoice-batch`\n\n**Metrics observed:**\n- I"
+          }
+        ],
+        "tokens": 6411,
+        "tool_calls": 2,
+        "classification": "{\"category\": \"errors_or_failures\", \"function_name\": \"invoice-batch\", \"needs_telemetry\": true, \"urgency\": \"high\", \"rationale\": \"The customer reports a resource named 'invoice-batch' is 'throwing errors' and explicitly requests urgency, indicating a high-priority failure requiring immediate investigation.\"}",
+        "answer": "## Triage Result: `invoice-batch`\n\n**Metrics observed:**\n- Invocations: 1,200\n- Error rate: 0.002 (0.2%)\n- p99 latency: 2,100 ms\n\n**Log retrieval:** Skipped by policy — metrics are within normal range, so logs were not pulled. This is not evidence of a fault; it simply means the system judged the metrics healthy enough that deeper inspection wasn't warranted.\n\n**Assessment:**\nThe telemetry contradicts the \"throwing errors\" / \"urgent\" description in the ticket. A 0.2% error rate is a normal baseline for a healthy function, and the p99 latency of 2.1s does not indicate a distressed system on its own (no threshold breach signaled). There's no evidence in the tool data of an active incident.\n\n**Probable cause:** None identified — metrics indicate the function is currently healthy. No root cause to report.\n\n**Confidence:** Low confidence that an actual problem exists at all, given the contradiction between the customer's description and the observed metrics. If errors are being seen client-side, it may help to get a specific timestamp, error message, or request ID from the customer to correlate with logs."
+      },
+      {
+        "id": "vague-en-04",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want insufficient_information, got insufficient_information"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want None, got None"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want False, got False"
+          },
+          {
+            "check": "avoids:get_function_metrics",
+            "passed": true,
+            "detail": "called nothing"
+          },
+          {
+            "check": "avoids:get_recent_logs",
+            "passed": true,
+            "detail": "called nothing"
+          },
+          {
+            "check": "no_invented_cause:notify-fanout",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:root cause",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:accessdenied",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "mentions:?",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "abstains",
+            "passed": true,
+            "detail": "did not ask for anything"
+          },
+          {
+            "check": "language:en",
+            "passed": true,
+            "detail": "not English: This ticket does not name a specific resource, so there is n"
+          }
+        ],
+        "tokens": 1241,
+        "tool_calls": 0,
+        "classification": "{\"category\": \"insufficient_information\", \"function_name\": null, \"needs_telemetry\": false, \"urgency\": \"medium\", \"rationale\": \"The ticket describes a symptom ('notifications aren't going out') without naming the specific resource or service responsible, making it impossible to proceed without more information.\"}",
+        "answer": "This ticket does not name a specific resource, so there is nothing to look up yet. Which function or service is affected? Naming it will let us pull its metrics directly."
+      },
+      {
+        "id": "unknown-en-05",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want errors_or_failures, got errors_or_failures"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want 'payment-api', got 'payment-api'"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want True, got True"
+          },
+          {
+            "check": "calls:get_function_metrics",
+            "passed": true,
+            "detail": "called ['get_function_metrics']"
+          },
+          {
+            "check": "no_invented_cause:root cause is",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:dynamodb",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:accessdenied",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "mentions:no such function",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "abstains",
+            "passed": true,
+            "detail": "did not ask for anything"
+          },
+          {
+            "check": "language:en",
+            "passed": true,
+            "detail": "not English: **Result: Function not found**\n\nI checked telemetry for a fu"
+          }
+        ],
+        "tokens": 4414,
+        "tool_calls": 1,
+        "classification": "{\"category\": \"errors_or_failures\", \"function_name\": \"payment-api\", \"needs_telemetry\": true, \"urgency\": \"critical\", \"rationale\": \"The customer reports that 'payment-api has been down since 3am', indicating a service failure with a clear start time and named resource, warranting critical urgency due to the business-critical nature of a payment system being unavailable.\"}",
+        "answer": "**Result: Function not found**\n\nI checked telemetry for a function named `payment-api`, and it does not exist in the system. I cannot pull metrics or logs for a resource that isn't registered, and I won't guess at a similarly-named function instead.\n\nCould you please confirm the exact function name as it appears in your deployment (e.g., check your dashboard or deployment config for typos, casing, or a different service name)? Once I have the correct name, I can check its metrics and logs to investigate the reported downtime."
+      },
+      {
+        "id": "perf-ja-06",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want performance_degradation, got performance_degradation"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want 'checkout-api', got 'checkout-api'"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want True, got True"
+          },
+          {
+            "check": "calls:get_function_metrics",
+            "passed": true,
+            "detail": "called ['get_function_metrics', 'get_recent_logs']"
+          },
+          {
+            "check": "calls:get_recent_logs",
+            "passed": true,
+            "detail": "called ['get_function_metrics', 'get_recent_logs']"
+          },
+          {
+            "check": "no_invented_cause:スロットリング",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:メモリリーク",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "mentions:タイムアウト",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "mentions:dynamodb",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "language:ja",
+            "passed": true,
+            "detail": "not Japanese"
+          }
+        ],
+        "tokens": 6713,
+        "tool_calls": 2,
+        "classification": "{\"category\": \"performance_degradation\", \"function_name\": \"checkout-api\", \"needs_telemetry\": true, \"urgency\": \"high\", \"rationale\": \"The customer reports that checkout-api responses have been abnormally slow since this morning (今朝からcheckout-apiの応答が異常に遅い), indicating a performance degradation issue for a named resource.\"}",
+        "answer": "## 調査結果\n\n**対象関数:** checkout-api\n\n### メトリクス\n- 呼び出し数: 128,400件\n- エラー率: 8.1%(明らかに高い水平)\n- p99レイテンシ: 9,850ms(異常に遅い)\n\nご報告の「応答が異常に遅い」という内容は、メトリクス上でも裏付けられています。\n\n### ログ調査結果\nメトリクスが異常値を示していたため、ログを確認しました。以下のエラーが確認できます。\n\n- `Task timed out after 10.00 seconds`(タイムアウト、実行時間はほぼ上限の10,000ms)\n- メモリ使用量は498MB/512MBで、リソース枯竭ではない\n- `[ERROR] ConnectTimeoutError: Connect timeout on endpoint URL: https://dynamodb.ap-northeast-1.amazonaws.com/`\n\n### 推定される根本原因\nDynamoDB(ap-northeast-1)への接続タイムアウトが発生しており、これが原因で関数の実行がタイムアウト上限(10秒)まで到達し、レイテンシとエラー率の悪化を引き起こしていると考えられます。\n\n**確信度: 高**(メトリクスとログの両方が同一の障害パターン――DynamoDBへの接続タイムアウト→関数タイムアウト――を明確に示しているため)\n\n### 推奨対応\n- DynamoDBテーブルへのネットワーク接続性(VPCエンドポイント、セキュリティグループ、ルーティング設定など)を確認してください。\n- DynamoDB側のスロットリングやキャパシティ状況も併せてご確認ください。"
+      },
+      {
+        "id": "vague-ja-07",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want insufficient_information, got insufficient_information"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want None, got None"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want False, got False"
+          },
+          {
+            "check": "avoids:get_function_metrics",
+            "passed": true,
+            "detail": "called nothing"
+          },
+          {
+            "check": "avoids:get_recent_logs",
+            "passed": true,
+            "detail": "called nothing"
+          },
+          {
+            "check": "no_invented_cause:invoice-batch",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:根本原因",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "mentions:？",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "abstains",
+            "passed": true,
+            "detail": "did not ask for anything"
+          },
+          {
+            "check": "language:ja",
+            "passed": true,
+            "detail": "not Japanese"
+          }
+        ],
+        "tokens": 1256,
+        "tool_calls": 0,
+        "classification": "{\"category\":\"insufficient_information\",\"function_name\":null,\"needs_telemetry\":false,\"urgency\":\"high\",\"rationale\":\"Customer reports batch processing is not working and requests urgent confirmation, but does not name the specific resource or function, making it impossible to query telemetry without clarification.\"}",
+        "answer": "対象のリソース名が記載されていないため、まだ調査を開始できません。どの関数・サービスで発生していますか。名前が分かればメトリクスを直接確認できます。"
+      },
+      {
+        "id": "howto-en-08",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want how_to_or_guidance, got how_to_or_guidance"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want None, got None"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want False, got False"
+          }
+        ],
+        "tokens": 1263,
+        "tool_calls": 0,
+        "classification": "{\"category\": \"how_to_or_guidance\", \"function_name\": null, \"needs_telemetry\": false, \"urgency\": \"low\", \"rationale\": \"The customer is asking for procedural guidance on how to modify a function's memory limit, without naming a specific function or reporting a failure, so this is a how-to question.\"}",
+        "answer": null
+      },
+      {
+        "id": "howto-ja-09",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want how_to_or_guidance, got how_to_or_guidance"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want None, got None"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want False, got False"
+          }
+        ],
+        "tokens": 1276,
+        "tool_calls": 0,
+        "classification": "{\"category\": \"how_to_or_guidance\", \"function_name\": null, \"needs_telemetry\": false, \"urgency\": \"low\", \"rationale\": \"The customer asks 'please teach me the procedure to change a function's timeout value' — this is a request for guidance on how to perform a configuration task, with no indication of an ongoing failure or urgent problem.\"}",
+        "answer": null
+      }
+    ],
+    [
+      {
+        "id": "perf-en-01",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want performance_degradation, got performance_degradation"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want 'checkout-api', got 'checkout-api'"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want True, got True"
+          },
+          {
+            "check": "calls:get_function_metrics",
+            "passed": true,
+            "detail": "called ['get_function_metrics', 'get_recent_logs']"
+          },
+          {
+            "check": "calls:get_recent_logs",
+            "passed": true,
+            "detail": "called ['get_function_metrics', 'get_recent_logs']"
+          },
+          {
+            "check": "no_invented_cause:throttl",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:cold start",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:memory leak",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "mentions:timeout",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "mentions:dynamodb",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "language:en",
+            "passed": true,
+            "detail": "not English: ## Triage Summary: checkout-api\n\n**Metrics observed:**\n- Inv"
+          }
+        ],
+        "tokens": 6471,
+        "tool_calls": 2,
+        "classification": "{\"category\": \"performance_degradation\", \"function_name\": \"checkout-api\", \"needs_telemetry\": true, \"urgency\": \"high\", \"rationale\": \"Customer reports 'slow' performance on a named resource (checkout-api) this morning, indicating a performance degradation issue that requires immediate investigation of system telemetry.\"}",
+        "answer": "## Triage Summary: checkout-api\n\n**Metrics observed:**\n- Invocations: 128,400\n- Error rate: 8.1% (elevated)\n- p99 latency: 9,850 ms (near the function's 10-second timeout ceiling)\n\n**Log findings:**\n- Multiple `Task timed out after 10.00 seconds` entries\n- Memory usage is not the issue (498 MB / 512 MB used, so it's not OOM-driven)\n- An explicit `ConnectTimeoutError` connecting to DynamoDB (`dynamodb.ap-northeast-1.amazonaws.com`)\n\n**Probable root cause:** The function is timing out because it cannot establish a connection to DynamoDB in the `ap-northeast-1` region within the allotted time. This is consistent with both the high p99 latency (functions running to the 10s timeout) and the elevated error rate.\n\n**Confidence: high** — the timeout duration, the timeout log lines, and the explicit DynamoDB connect-timeout error all point to the same mechanism, so the evidence is consistent rather than circumstantial.\n\n**Recommended next step:** Check DynamoDB service health/throttling in `ap-northeast-1` and verify network path (VPC/NAT/security group) between checkout-api and that DynamoDB endpoint."
+      },
+      {
+        "id": "perm-en-02",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want permission_or_access, got permission_or_access"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want 'notify-fanout', got 'notify-fanout'"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want True, got True"
+          },
+          {
+            "check": "calls:get_function_metrics",
+            "passed": true,
+            "detail": "called ['get_function_metrics', 'get_recent_logs']"
+          },
+          {
+            "check": "calls:get_recent_logs",
+            "passed": true,
+            "detail": "called ['get_function_metrics', 'get_recent_logs']"
+          },
+          {
+            "check": "no_invented_cause:timeout",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:quota exceeded",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "mentions:accessdenied",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "mentions:sns",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "language:en",
+            "passed": true,
+            "detail": "not English: ## Triage Summary: notify-fanout\n\n**Metrics:**\n- Invocations"
+          }
+        ],
+        "tokens": 6384,
+        "tool_calls": 2,
+        "classification": "{\"category\": \"permission_or_access\", \"function_name\": \"notify-fanout\", \"needs_telemetry\": true, \"urgency\": \"high\", \"rationale\": \"Customer reports 'notify-fanout is failing' with 'something got denied', indicating an authorization or access denial rather than a general failure.\"}",
+        "answer": "## Triage Summary: notify-fanout\n\n**Metrics:**\n- Invocations: 45,900\n- Error rate: 31.1% (elevated)\n- p99 latency: 640ms\n\n**Logs:**\nRepeated `AccessDenied: User is not authorized to perform sns:Publish` errors, followed by exhausted retries (3/3).\n\n**Probable Root Cause:** The function's execution role is missing (or has lost) permission for `sns:Publish`. This matches the customer's report of \"something got denied\" — the elevated error rate is being driven by these AccessDenied failures on the SNS publish call, not by timeouts or downstream service issues.\n\n**Confidence: High** — the log evidence directly confirms an authorization denial as the failure mode, and the error rate is consistent with a persistent permissions problem rather than an intermittent fault.\n\n**Recommended action:** Check the IAM policy attached to notify-fanout's execution role and confirm it grants `sns:Publish` on the target topic(s). Also verify no recent changes to the SNS topic's resource policy that might be blocking this role specifically."
+      },
+      {
+        "id": "healthy-en-03",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want errors_or_failures, got errors_or_failures"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want 'invoice-batch', got 'invoice-batch'"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want True, got True"
+          },
+          {
+            "check": "calls:get_function_metrics",
+            "passed": true,
+            "detail": "called ['get_function_metrics', 'get_recent_logs']"
+          },
+          {
+            "check": "no_invented_cause:root cause is",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:outage",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:throttl",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:misconfigur",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "mentions:healthy",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "language:en",
+            "passed": true,
+            "detail": "not English: ## Triage Result — `invoice-batch`\n\n**Metrics observed:**\n- "
+          }
+        ],
+        "tokens": 6487,
+        "tool_calls": 2,
+        "classification": "{\"category\": \"errors_or_failures\", \"function_name\": \"invoice-batch\", \"needs_telemetry\": true, \"urgency\": \"high\", \"rationale\": \"The customer states 'invoice-batch is throwing errors' and requests investigation 'urgently', indicating a function experiencing failures with claimed high urgency.\"}",
+        "answer": "## Triage Result — `invoice-batch`\n\n**Metrics observed:**\n- Invocations: 1,200\n- Error rate: 0.2% (0.002)\n- p99 latency: 2,100 ms\n\n**Findings:**\nThe telemetry does **not** support the description of \"throwing errors.\" An error rate of 0.2% is within normal operating range, and log retrieval was automatically skipped because the metrics were healthy — this is not evidence of a fault, just confirmation that nothing anomalous was detected.\n\n**Contradiction to flag:** The ticket describes urgent, active errors, but current metrics show the function operating normally. This mismatch could mean the issue was transient, has already resolved, or is not actually located in `invoice-batch`.\n\n**Probable root cause:** None identified — no fault is indicated by current telemetry.\n\n**Confidence:** High (that the function is currently healthy), based directly on metrics.\n\n**Next steps:** If errors are still occurring on your end, please provide a timestamp or specific error message from your invocation, so we can check whether this was a transient spike outside the current metrics window, or confirm whether a different function is actually involved."
+      },
+      {
+        "id": "vague-en-04",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want insufficient_information, got insufficient_information"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want None, got None"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want False, got False"
+          },
+          {
+            "check": "avoids:get_function_metrics",
+            "passed": true,
+            "detail": "called nothing"
+          },
+          {
+            "check": "avoids:get_recent_logs",
+            "passed": true,
+            "detail": "called nothing"
+          },
+          {
+            "check": "no_invented_cause:notify-fanout",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:root cause",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:accessdenied",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "mentions:?",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "abstains",
+            "passed": true,
+            "detail": "did not ask for anything"
+          },
+          {
+            "check": "language:en",
+            "passed": true,
+            "detail": "not English: This ticket does not name a specific resource, so there is n"
+          }
+        ],
+        "tokens": 1234,
+        "tool_calls": 0,
+        "classification": "{\"category\": \"insufficient_information\", \"function_name\": null, \"needs_telemetry\": false, \"urgency\": \"medium\", \"rationale\": \"The ticket describes a symptom without naming any specific resource or function, making it impossible to identify what system needs investigation.\"}",
+        "answer": "This ticket does not name a specific resource, so there is nothing to look up yet. Which function or service is affected? Naming it will let us pull its metrics directly."
+      },
+      {
+        "id": "unknown-en-05",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want errors_or_failures, got errors_or_failures"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want 'payment-api', got 'payment-api'"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want True, got True"
+          },
+          {
+            "check": "calls:get_function_metrics",
+            "passed": true,
+            "detail": "called ['get_function_metrics']"
+          },
+          {
+            "check": "no_invented_cause:root cause is",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:dynamodb",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:accessdenied",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "mentions:no such function",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "abstains",
+            "passed": true,
+            "detail": "did not ask for anything"
+          },
+          {
+            "check": "language:en",
+            "passed": true,
+            "detail": "not English: I checked telemetry for a function named **payment-api**, bu"
+          }
+        ],
+        "tokens": 4378,
+        "tool_calls": 1,
+        "classification": "{\"category\": \"errors_or_failures\", \"function_name\": \"payment-api\", \"needs_telemetry\": true, \"urgency\": \"critical\", \"rationale\": \"The ticket reports a named resource 'payment-api' that 'has been down since 3am', indicating a service outage that warrants critical urgency and telemetry lookup.\"}",
+        "answer": "I checked telemetry for a function named **payment-api**, but it doesn't exist in our backend — no metrics were found under that name.\n\nCould you confirm the exact function name? It's possible it's registered under a slightly different name (e.g., \"payments-api\", \"payment-service\", etc.). Once you confirm, I can pull the metrics and logs to investigate.\n\nNo root cause can be determined at this time since the resource could not be located."
+      },
+      {
+        "id": "perf-ja-06",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want performance_degradation, got performance_degradation"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want 'checkout-api', got 'checkout-api'"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want True, got True"
+          },
+          {
+            "check": "calls:get_function_metrics",
+            "passed": true,
+            "detail": "called ['get_function_metrics', 'get_recent_logs']"
+          },
+          {
+            "check": "calls:get_recent_logs",
+            "passed": true,
+            "detail": "called ['get_function_metrics', 'get_recent_logs']"
+          },
+          {
+            "check": "no_invented_cause:スロットリング",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:メモリリーク",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "mentions:タイムアウト",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "mentions:dynamodb",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "language:ja",
+            "passed": true,
+            "detail": "not Japanese"
+          }
+        ],
+        "tokens": 6704,
+        "tool_calls": 2,
+        "classification": "{\"category\": \"performance_degradation\", \"function_name\": \"checkout-api\", \"needs_telemetry\": true, \"urgency\": \"high\", \"rationale\": \"The customer reports that checkout-api responses have been abnormally slow since this morning, indicating a performance issue affecting a named resource that requires immediate investigation.\"}",
+        "answer": "## 調査結果\n\n**対象関数:** checkout-api\n\n### メトリクス\n- 呼び出し回数: 128,400件\n- エラー率: 8.1%(通常範囲外に見えます)\n- p99レイテンシ: 9,850ms(非常に高い)\n\nご報告いただいた「応答が異常に遅い」という内容は、メトリクス上でも裏付けられています。\n\n### ログ調査結果\np99が高くエラー率も高いため、ログを確認したところ以下が確認できました。\n\n- タスクが10秒でタイムアウトしている(`Task timed out after 10.00 seconds`)\n- 実行時間がほぼ上限の10,000msに達している(メモリ使用量自体は498MB/512MBで問題なし)\n- DynamoDBエンドポイントへの接続タイムアウトエラー(`ConnectTimeoutError`)が発生している\n\n### 推定原因\nDynamoDB(ap-northeast-1)への接続がタイムアウトしており、これが原因でLambda関数自体もタイムアウト(10秒)に達していると考えられます。メモリ不足は原因ではありません(使用量に余裕あり)。\n\n**確信度: 高**\nログにDynamoDB接続タイムアウトの明確な記録があり、関数のタイムアウトタイミングとも一致しているため、DynamoDBへの接続不良が根本原因である可能性が高いです。\n\n### 次のアクション推奨\n- DynamoDB側のスロットリング設定やキャパシティ状況の確認\n- checkout-api関数とDynamoDB間のネットワーク経路(VPC設定、セキュリティグループ等)の確認"
+      },
+      {
+        "id": "vague-ja-07",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want insufficient_information, got insufficient_information"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want None, got None"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want False, got False"
+          },
+          {
+            "check": "avoids:get_function_metrics",
+            "passed": true,
+            "detail": "called nothing"
+          },
+          {
+            "check": "avoids:get_recent_logs",
+            "passed": true,
+            "detail": "called nothing"
+          },
+          {
+            "check": "no_invented_cause:invoice-batch",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:根本原因",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "mentions:？",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "abstains",
+            "passed": true,
+            "detail": "did not ask for anything"
+          },
+          {
+            "check": "language:ja",
+            "passed": true,
+            "detail": "not Japanese"
+          }
+        ],
+        "tokens": 1277,
+        "tool_calls": 0,
+        "classification": "{\"category\": \"insufficient_information\", \"function_name\": null, \"needs_telemetry\": false, \"urgency\": \"critical\", \"rationale\": \"The customer claims critical urgency ('至急' means urgent) and reports batch processing is not working ('バッチ処理が動いていない'), but names no specific resource or function to investigate, only a symptom.\"}",
+        "answer": "対象のリソース名が記載されていないため、まだ調査を開始できません。どの関数・サービスで発生していますか。名前が分かればメトリクスを直接確認できます。"
+      },
+      {
+        "id": "howto-en-08",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want how_to_or_guidance, got how_to_or_guidance"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want None, got None"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want False, got False"
+          }
+        ],
+        "tokens": 1260,
+        "tool_calls": 0,
+        "classification": "{\"category\": \"how_to_or_guidance\", \"function_name\": null, \"needs_telemetry\": false, \"urgency\": \"low\", \"rationale\": \"The customer is asking for procedural guidance on how to configure a function, without reporting a symptom or naming a specific resource, making this a how-to question.\"}",
+        "answer": null
+      },
+      {
+        "id": "howto-ja-09",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want how_to_or_guidance, got how_to_or_guidance"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want None, got None"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want False, got False"
+          }
+        ],
+        "tokens": 1264,
+        "tool_calls": 0,
+        "classification": "{\"category\": \"how_to_or_guidance\", \"function_name\": null, \"needs_telemetry\": false, \"urgency\": \"medium\", \"rationale\": \"The customer is asking for procedural instructions on how to change a function's timeout value, which is a how-to guidance question rather than reporting a problem.\"}",
+        "answer": null
+      }
+    ],
+    [
+      {
+        "id": "perf-en-01",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want performance_degradation, got performance_degradation"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want 'checkout-api', got 'checkout-api'"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want True, got True"
+          },
+          {
+            "check": "calls:get_function_metrics",
+            "passed": true,
+            "detail": "called ['get_function_metrics', 'get_recent_logs']"
+          },
+          {
+            "check": "calls:get_recent_logs",
+            "passed": true,
+            "detail": "called ['get_function_metrics', 'get_recent_logs']"
+          },
+          {
+            "check": "no_invented_cause:throttl",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:cold start",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:memory leak",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "mentions:timeout",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "mentions:dynamodb",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "language:en",
+            "passed": true,
+            "detail": "not English: ## Triage Summary: checkout-api\n\n**Metrics observed:**\n- Inv"
+          }
+        ],
+        "tokens": 6608,
+        "tool_calls": 2,
+        "classification": "{\"category\": \"performance_degradation\", \"function_name\": \"checkout-api\", \"needs_telemetry\": true, \"urgency\": \"high\", \"rationale\": \"Customer reports 'slow this morning' for a named resource (checkout-api), indicating degraded performance of a critical payment function, which warrants high urgency.\"}",
+        "answer": "## Triage Summary: checkout-api\n\n**Metrics observed:**\n- Invocations: 128,400\n- Error rate: 8.1% (elevated)\n- p99 latency: 9,850 ms (very high)\n\n**Log findings:**\n- Function is hitting the 10-second timeout ceiling (\"Task timed out after 10.00 seconds\")\n- Memory usage is fine (498 MB / 512 MB, not a memory pressure issue)\n- Explicit error: `ConnectTimeoutError` connecting to `https://dynamodb.ap-northeast-1.amazonaws.com/`\n\n**Probable root cause:** checkout-api is timing out because it cannot establish a connection to DynamoDB in the ap-northeast-1 region within the function's execution window. The elevated p99 and error rate are consistent with requests stalling on this downstream dependency until the 10s timeout is hit.\n\n**Confidence: high** — this is directly supported by the log evidence (explicit timeout message + matching duration in the report line + explicit DynamoDB connect timeout error), not an inference from metrics alone.\n\n**Note on the ticket description:** The customer described this as \"slow,\" but the data shows it's actually failing outright (timeouts + 8.1% error rate), not just running slower than usual. Worth flagging to the customer that this is a connectivity failure to DynamoDB, not general latency degradation.\n\n**Recommended next step:** Check DynamoDB service health/network connectivity in ap-northeast-1, and verify checkout-api's VPC/network configuration (e.g., NAT gateway, security groups, VPC endpoint for DynamoDB) if it runs inside a VPC."
+      },
+      {
+        "id": "perm-en-02",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want permission_or_access, got permission_or_access"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want 'notify-fanout', got 'notify-fanout'"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want True, got True"
+          },
+          {
+            "check": "calls:get_function_metrics",
+            "passed": true,
+            "detail": "called ['get_function_metrics', 'get_recent_logs']"
+          },
+          {
+            "check": "calls:get_recent_logs",
+            "passed": true,
+            "detail": "called ['get_function_metrics', 'get_recent_logs']"
+          },
+          {
+            "check": "no_invented_cause:timeout",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:quota exceeded",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "mentions:accessdenied",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "mentions:sns",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "language:en",
+            "passed": true,
+            "detail": "not English: ## Triage Summary: notify-fanout\n\n**1. Function identified:*"
+          }
+        ],
+        "tokens": 6386,
+        "tool_calls": 2,
+        "classification": "{\"category\":\"permission_or_access\",\"function_name\":\"notify-fanout\",\"needs_telemetry\":true,\"urgency\":\"high\",\"rationale\":\"Customer states 'notify-fanout is failing' and explicitly indicates 'something got denied', pointing to a permission or access denial issue rather than a generic failure.\"}",
+        "answer": "## Triage Summary: notify-fanout\n\n**1. Function identified:** `notify-fanout` (named explicitly in the ticket)\n\n**2. Metrics:**\n- Invocations: 45,900\n- Error rate: 31.1% (elevated)\n- p99 latency: 640 ms\n\n**3. Logs (pulled due to elevated error rate):**\n- Repeated `AccessDenied: User is not authorized to perform sns:Publish`\n- Followed by retry exhaustion (`Retrying (attempt 3/3)`)\n\n**4. Root cause:** The function's execution role lacks the `sns:Publish` permission required to fan out notifications. This matches the customer's suspicion of something being \"denied\" — confirmed as an IAM/authorization issue on the SNS publish call, not a downstream service outage or code bug.\n\n**Confidence: High** — the log evidence directly and consistently shows an `AccessDenied` error on the specific action the function needs to perform, correlated with the elevated error rate in the metrics.\n\n**Recommended action:** Review and update the IAM policy attached to notify-fanout's execution role to grant `sns:Publish` permission on the target topic(s)."
+      },
+      {
+        "id": "healthy-en-03",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want errors_or_failures, got errors_or_failures"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want 'invoice-batch', got 'invoice-batch'"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want True, got True"
+          },
+          {
+            "check": "calls:get_function_metrics",
+            "passed": true,
+            "detail": "called ['get_function_metrics', 'get_recent_logs']"
+          },
+          {
+            "check": "no_invented_cause:root cause is",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:outage",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:throttl",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:misconfigur",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "mentions:healthy",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "language:en",
+            "passed": true,
+            "detail": "not English: ## Triage Result: invoice-batch\n\n**Metrics observed:**\n- Inv"
+          }
+        ],
+        "tokens": 6494,
+        "tool_calls": 2,
+        "classification": "{\"category\": \"errors_or_failures\", \"function_name\": \"invoice-batch\", \"needs_telemetry\": true, \"urgency\": \"high\", \"rationale\": \"The customer reports a function named 'invoice-batch' is 'throwing errors' and requests urgent investigation, indicating a service failure.\"}",
+        "answer": "## Triage Result: invoice-batch\n\n**Metrics observed:**\n- Invocations: 1,200\n- Error rate: 0.2% (0.002)\n- p99 latency: 2,100 ms\n\n**Assessment:**\nThe telemetry does not support the claim of active errors. A 0.2% error rate and a p99 latency of 2.1s are within normal operating range for a function of this type, and the logging system automatically skipped log retrieval because the metrics did not warrant it — this is a healthy signal, not a gap in evidence.\n\n**Contradiction to flag:** Your ticket describes the function as \"throwing errors,\" but the current metrics do not show an elevated error rate. It's possible the issue was transient, has already resolved, or you're seeing errors in a different function or environment (e.g., a staging/downstream consumer of invoice-batch's output) that isn't reflected here.\n\n**Probable root cause:** None identified — the function appears healthy based on current metrics.\n\n**Confidence:** High (that the function is currently healthy), based directly on the metrics tool.\n\n**Next steps:** If you're still seeing errors, could you share:\n1. A timestamp or time window for when the errors occurred?\n2. A sample error message or ID?\n3. Confirmation that \"invoice-batch\" is the exact function name (not a related service)?\n\nThis will help us check whether the issue was transient or points to a different component."
+      },
+      {
+        "id": "vague-en-04",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want insufficient_information, got insufficient_information"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want None, got None"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want False, got False"
+          },
+          {
+            "check": "avoids:get_function_metrics",
+            "passed": true,
+            "detail": "called nothing"
+          },
+          {
+            "check": "avoids:get_recent_logs",
+            "passed": true,
+            "detail": "called nothing"
+          },
+          {
+            "check": "no_invented_cause:notify-fanout",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:root cause",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:accessdenied",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "mentions:?",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "abstains",
+            "passed": true,
+            "detail": "did not ask for anything"
+          },
+          {
+            "check": "language:en",
+            "passed": true,
+            "detail": "not English: This ticket does not name a specific resource, so there is n"
+          }
+        ],
+        "tokens": 1241,
+        "tool_calls": 0,
+        "classification": "{\"category\": \"insufficient_information\", \"function_name\": null, \"needs_telemetry\": false, \"urgency\": \"medium\", \"rationale\": \"The ticket describes a symptom ('notifications aren't going out') without naming a specific resource or function, making it impossible to determine which system to investigate.\"}",
+        "answer": "This ticket does not name a specific resource, so there is nothing to look up yet. Which function or service is affected? Naming it will let us pull its metrics directly."
+      },
+      {
+        "id": "unknown-en-05",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want errors_or_failures, got errors_or_failures"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want 'payment-api', got 'payment-api'"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want True, got True"
+          },
+          {
+            "check": "calls:get_function_metrics",
+            "passed": true,
+            "detail": "called ['get_function_metrics']"
+          },
+          {
+            "check": "no_invented_cause:root cause is",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:dynamodb",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:accessdenied",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "mentions:no such function",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "abstains",
+            "passed": true,
+            "detail": "did not ask for anything"
+          },
+          {
+            "check": "language:en",
+            "passed": true,
+            "detail": "not English: I checked telemetry for a function named **payment-api**, bu"
+          }
+        ],
+        "tokens": 4368,
+        "tool_calls": 1,
+        "classification": "{\"category\": \"errors_or_failures\", \"function_name\": \"payment-api\", \"needs_telemetry\": true, \"urgency\": \"critical\", \"rationale\": \"The customer reports a service has been down for several hours (since 3am), which is a current outage of a named resource requiring immediate attention.\"}",
+        "answer": "I checked telemetry for a function named **payment-api**, but it does not exist in the monitoring backend — no metrics are available under that name.\n\nBefore I can investigate further, could you please confirm the exact function name? It may be registered under a different name (e.g., a variant like `payments-api`, `payment-service`, etc.). Once you confirm the correct identifier, I'll pull the metrics and logs right away."
+      },
+      {
+        "id": "perf-ja-06",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want performance_degradation, got performance_degradation"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want 'checkout-api', got 'checkout-api'"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want True, got True"
+          },
+          {
+            "check": "calls:get_function_metrics",
+            "passed": true,
+            "detail": "called ['get_function_metrics', 'get_recent_logs']"
+          },
+          {
+            "check": "calls:get_recent_logs",
+            "passed": true,
+            "detail": "called ['get_function_metrics', 'get_recent_logs']"
+          },
+          {
+            "check": "no_invented_cause:スロットリング",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:メモリリーク",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "mentions:タイムアウト",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "mentions:dynamodb",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "language:ja",
+            "passed": true,
+            "detail": "not Japanese"
+          }
+        ],
+        "tokens": 6646,
+        "tool_calls": 2,
+        "classification": "{\"category\":\"performance_degradation\",\"function_name\":\"checkout-api\",\"needs_telemetry\":true,\"urgency\":\"high\",\"rationale\":\"Customer reports that checkout-api responses have been abnormally slow since this morning, indicating a performance issue affecting a named service.\"}",
+        "answer": "## 調査結果\n\n**対象関数:** checkout-api\n\n**メトリクス:**\n- 呼び出し回数: 128,400\n- エラー率: 8.1%（明らかに異常な水準です）\n- p99レイテンシ: 9,850ms（非常に高い）\n\n**ログから判明した内容:**\n- 「Task timed out after 10.00 seconds」というタイムアウトエラーが発生\n- 実行時間はほぼ上限の10,000ms（メモリ使用量498MB/512MBで、メモリ不足ではなさそうです）\n- 「ConnectTimeoutError: Connect timeout on endpoint URL: https://dynamodb.ap-northeast-1.amazonaws.com/」というエラーが記録されています\n\n## 推定原因\n\ncheckout-apiがDynamoDB（ap-northeast-1リージョン）への接続時にタイムアウトしており、これが原因で関数自体もタイムアウト（10秒）に達し、応答遅延とエラー率上昇を引き起こしていると考えられます。\n\n**確信度: 高**\n\nログにDynamoDBへの接続タイムアウトエラーが明確に記録されており、関数のタイムアウトと時間的にも一致しているため、この因果関係の確信度は高いと判断します。\n\n## 推奨対応\n- DynamoDB側の状態（スロットリング、リージョン障害など）を確認してください\n- checkout-apiとDynamoDB間のネットワーク経路（VPCエンドポイント、セキュリティグループなど）を確認してください"
+      },
+      {
+        "id": "vague-ja-07",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want insufficient_information, got insufficient_information"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want None, got None"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want False, got False"
+          },
+          {
+            "check": "avoids:get_function_metrics",
+            "passed": true,
+            "detail": "called nothing"
+          },
+          {
+            "check": "avoids:get_recent_logs",
+            "passed": true,
+            "detail": "called nothing"
+          },
+          {
+            "check": "no_invented_cause:invoice-batch",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:根本原因",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "mentions:？",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "abstains",
+            "passed": true,
+            "detail": "did not ask for anything"
+          },
+          {
+            "check": "language:ja",
+            "passed": true,
+            "detail": "not Japanese"
+          }
+        ],
+        "tokens": 1252,
+        "tool_calls": 0,
+        "classification": "{\"category\":\"insufficient_information\",\"function_name\":null,\"needs_telemetry\":false,\"urgency\":\"high\",\"rationale\":\"The customer reports batch processing is not working and asks for urgent confirmation, but does not name a specific resource or function, only describing a symptom.\"}",
+        "answer": "対象のリソース名が記載されていないため、まだ調査を開始できません。どの関数・サービスで発生していますか。名前が分かればメトリクスを直接確認できます。"
+      },
+      {
+        "id": "howto-en-08",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want how_to_or_guidance, got how_to_or_guidance"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want None, got None"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want False, got False"
+          }
+        ],
+        "tokens": 1258,
+        "tool_calls": 0,
+        "classification": "{\"category\": \"how_to_or_guidance\", \"function_name\": null, \"needs_telemetry\": false, \"urgency\": \"low\", \"rationale\": \"The ticket asks for guidance on how to perform a task (raising memory limits) rather than reporting a problem, and does not name a specific function or resource.\"}",
+        "answer": null
+      },
+      {
+        "id": "howto-ja-09",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want how_to_or_guidance, got how_to_or_guidance"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want None, got None"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want False, got False"
+          }
+        ],
+        "tokens": 1257,
+        "tool_calls": 0,
+        "classification": "{\"category\":\"how_to_or_guidance\",\"function_name\":null,\"needs_telemetry\":false,\"urgency\":\"low\",\"rationale\":\"Customer is asking how to change a timeout value for a function, which is a procedural how-to question without naming a specific resource or reporting a failure.\"}",
+        "answer": null
+      }
+    ],
+    [
+      {
+        "id": "perf-en-01",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want performance_degradation, got performance_degradation"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want 'checkout-api', got 'checkout-api'"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want True, got True"
+          },
+          {
+            "check": "calls:get_function_metrics",
+            "passed": true,
+            "detail": "called ['get_function_metrics', 'get_recent_logs']"
+          },
+          {
+            "check": "calls:get_recent_logs",
+            "passed": true,
+            "detail": "called ['get_function_metrics', 'get_recent_logs']"
+          },
+          {
+            "check": "no_invented_cause:throttl",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:cold start",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:memory leak",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "mentions:timeout",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "mentions:dynamodb",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "language:en",
+            "passed": true,
+            "detail": "not English: ## Triage Summary — checkout-api\n\n**Metrics:**\n- Invocations"
+          }
+        ],
+        "tokens": 6524,
+        "tool_calls": 2,
+        "classification": "{\"category\": \"performance_degradation\", \"function_name\": \"checkout-api\", \"needs_telemetry\": true, \"urgency\": \"high\", \"rationale\": \"The customer reports 'checkout-api is slow this morning', indicating a performance issue with a named resource that warrants investigation of current metrics.\"}",
+        "answer": "## Triage Summary — checkout-api\n\n**Metrics:**\n- Invocations: 128,400\n- Error rate: 8.1% (elevated)\n- p99 latency: 9,850 ms (very high)\n\n**Logs (retrieved due to abnormal metrics):**\n- `Task timed out after 10.00 seconds` — function is hitting its timeout ceiling\n- REPORT line confirms Billed Duration: 10000 ms, Max Memory Used: 498 MB / 512 MB (memory is not the bottleneck — plenty of headroom left)\n- `ConnectTimeoutError: Connect timeout on endpoint URL: https://dynamodb.ap-northeast-1.amazonaws.com/`\n\n**Probable root cause:** checkout-api is timing out because it cannot establish a connection to DynamoDB in the ap-northeast-1 region. The function runs until its 10-second timeout is hit while waiting on the DynamoDB connection, which accounts for both the high p99 latency and the elevated error rate. This matches the customer's report of slowness.\n\n**Confidence: high** — both the latency spike and the error rate are directly corroborated by the timeout and DynamoDB connection-timeout entries in the logs.\n\n**Note:** Memory usage (498/512 MB) is not implicated as a factor here; the bottleneck is clearly the downstream DynamoDB connectivity, not compute/memory pressure."
+      },
+      {
+        "id": "perm-en-02",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want permission_or_access, got permission_or_access"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want 'notify-fanout', got 'notify-fanout'"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want True, got True"
+          },
+          {
+            "check": "calls:get_function_metrics",
+            "passed": true,
+            "detail": "called ['get_function_metrics', 'get_recent_logs']"
+          },
+          {
+            "check": "calls:get_recent_logs",
+            "passed": true,
+            "detail": "called ['get_function_metrics', 'get_recent_logs']"
+          },
+          {
+            "check": "no_invented_cause:timeout",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:quota exceeded",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "mentions:accessdenied",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "mentions:sns",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "language:en",
+            "passed": true,
+            "detail": "not English: ## Triage Summary — notify-fanout\n\n**Metrics:** 45,900 invoc"
+          }
+        ],
+        "tokens": 6314,
+        "tool_calls": 2,
+        "classification": "{\"category\": \"permission_or_access\", \"function_name\": \"notify-fanout\", \"needs_telemetry\": true, \"urgency\": \"high\", \"rationale\": \"The customer states 'something got denied', which indicates an authorization or permission problem with the named resource 'notify-fanout'.\"}",
+        "answer": "## Triage Summary — notify-fanout\n\n**Metrics:** 45,900 invocations, error rate **31.1%**, p99 latency 640ms.\n\n**Logs:** Repeated `AccessDenied: User is not authorized to perform sns:Publish`, followed by retries that also fail (attempt 3/3).\n\n**Probable root cause:** The function's execution role is missing (or recently lost) the `sns:Publish` permission needed to fan out notifications. This matches the customer's description of \"something got denied.\"\n\n**Confidence: high** — the elevated error rate is directly corroborated by explicit AccessDenied errors on the specific SNS Publish action in the logs.\n\n**Recommended action:** Check the IAM role/policy attached to `notify-fanout` and confirm `sns:Publish` is granted for the target topic(s), and check for any recent policy or SCP changes that may have revoked it."
+      },
+      {
+        "id": "healthy-en-03",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want errors_or_failures, got errors_or_failures"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want 'invoice-batch', got 'invoice-batch'"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want True, got True"
+          },
+          {
+            "check": "calls:get_function_metrics",
+            "passed": true,
+            "detail": "called ['get_function_metrics']"
+          },
+          {
+            "check": "no_invented_cause:root cause is",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:outage",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:throttl",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:misconfigur",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "mentions:healthy",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "language:en",
+            "passed": true,
+            "detail": "not English: **Findings for `invoice-batch`:**\n\n- Invocations: 1,200\n- Er"
+          }
+        ],
+        "tokens": 4813,
+        "tool_calls": 1,
+        "classification": "{\"category\": \"errors_or_failures\", \"function_name\": \"invoice-batch\", \"needs_telemetry\": true, \"urgency\": \"high\", \"rationale\": \"The customer names 'invoice-batch' as the resource and reports it is 'throwing errors', and uses the word 'urgently' to indicate high urgency.\"}",
+        "answer": "**Findings for `invoice-batch`:**\n\n- Invocations: 1,200\n- Error rate: 0.2% (2 in 1,000 requests)\n- p99 latency: 2,100 ms\n\n**Assessment:** These metrics do not indicate a significant problem. A 0.2% error rate is within a normal operating range, and there's no indication of an error spike or elevated latency pattern that would suggest a systemic failure. This contradicts the ticket's description of the function \"throwing errors\" urgently — the telemetry does not support that characterization.\n\nSince the metrics look healthy, I did not pull raw logs (per policy, that step is reserved for cases where metrics indicate something is actually wrong).\n\n**Probable root cause:** No clear fault is evidenced by the telemetry. If you're seeing errors on your end that aren't reflected here, it's possible you're looking at a different environment/stage, a very recent spike not yet reflected in aggregated metrics, or client-side errors not originating from this function.\n\n**Confidence: low** — the available metrics don't support an urgent backend issue. Could you clarify:\n1. What specific errors are you seeing (error messages, status codes)?\n2. When did this start, and is it ongoing or a one-off spike?\n3. Which environment (prod/staging) and region?\n\nThis will help identify whether there's a narrower window or condition the current metrics snapshot isn't capturing."
+      },
+      {
+        "id": "vague-en-04",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want insufficient_information, got insufficient_information"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want None, got None"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want False, got False"
+          },
+          {
+            "check": "avoids:get_function_metrics",
+            "passed": true,
+            "detail": "called nothing"
+          },
+          {
+            "check": "avoids:get_recent_logs",
+            "passed": true,
+            "detail": "called nothing"
+          },
+          {
+            "check": "no_invented_cause:notify-fanout",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:root cause",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:accessdenied",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "mentions:?",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "abstains",
+            "passed": true,
+            "detail": "did not ask for anything"
+          },
+          {
+            "check": "language:en",
+            "passed": true,
+            "detail": "not English: This ticket does not name a specific resource, so there is n"
+          }
+        ],
+        "tokens": 1243,
+        "tool_calls": 0,
+        "classification": "{\"category\": \"insufficient_information\", \"function_name\": null, \"needs_telemetry\": false, \"urgency\": \"medium\", \"rationale\": \"The ticket describes a symptom (notifications not being sent) without naming a specific resource, function, or service, making it impossible to identify what system requires investigation.\"}",
+        "answer": "This ticket does not name a specific resource, so there is nothing to look up yet. Which function or service is affected? Naming it will let us pull its metrics directly."
+      },
+      {
+        "id": "unknown-en-05",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want errors_or_failures, got errors_or_failures"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want 'payment-api', got 'payment-api'"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want True, got True"
+          },
+          {
+            "check": "calls:get_function_metrics",
+            "passed": true,
+            "detail": "called ['get_function_metrics']"
+          },
+          {
+            "check": "no_invented_cause:root cause is",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:dynamodb",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:accessdenied",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "mentions:no such function",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "abstains",
+            "passed": false,
+            "detail": "did not ask for anything"
+          },
+          {
+            "check": "language:en",
+            "passed": true,
+            "detail": "not English: I checked telemetry for a function named **payment-api**, bu"
+          }
+        ],
+        "tokens": 4367,
+        "tool_calls": 1,
+        "classification": "{\"category\": \"errors_or_failures\", \"function_name\": \"payment-api\", \"needs_telemetry\": true, \"urgency\": \"critical\", \"rationale\": \"Customer states a named resource 'payment-api' has been down since 3am, indicating a service outage with high business impact and suggesting critical urgency.\"}",
+        "answer": "I checked telemetry for a function named **payment-api**, but it does not exist in our monitoring backend — there's no metrics data under that exact name.\n\nBefore I can triage this, I need you to confirm the exact function name (it may be spelled differently, e.g. with a different prefix/suffix or casing than \"payment-api\"). Once confirmed, I'll pull metrics and logs to determine what's happening."
+      },
+      {
+        "id": "perf-ja-06",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want performance_degradation, got performance_degradation"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want 'checkout-api', got 'checkout-api'"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want True, got True"
+          },
+          {
+            "check": "calls:get_function_metrics",
+            "passed": true,
+            "detail": "called ['get_function_metrics', 'get_recent_logs']"
+          },
+          {
+            "check": "calls:get_recent_logs",
+            "passed": true,
+            "detail": "called ['get_function_metrics', 'get_recent_logs']"
+          },
+          {
+            "check": "no_invented_cause:スロットリング",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:メモリリーク",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "mentions:タイムアウト",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "mentions:dynamodb",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "language:ja",
+            "passed": true,
+            "detail": "not Japanese"
+          }
+        ],
+        "tokens": 6618,
+        "tool_calls": 2,
+        "classification": "{\"category\":\"performance_degradation\",\"function_name\":\"checkout-api\",\"needs_telemetry\":true,\"urgency\":\"high\",\"rationale\":\"The customer reports 'checkout-api' is responding abnormally slowly since this morning, indicating a performance degradation issue with a named resource that can be queried for telemetry.\"}",
+        "answer": "## 調査結果:checkout-api\n\n**メトリクス**\n- 呼び出し回数: 128,400件\n- エラー率: 8.1%(通常範囲を超えています)\n- p99レイテンシ: 9,850ms(異常に高い)\n\n**ログから確認できた事象**\n- タスクが10秒でタイムアウトしている(`Task timed out after 10.00 seconds`)\n- メモリ使用量はほぼ上限(498MB / 512MB)に達しているが、メモリ不足エラー自体は出ていない\n- DynamoDB(ap-northeast-1)への接続でタイムアウト(`ConnectTimeoutError`)が発生している\n\n**推定される根本原因**\nDynamoDBへの接続タイムアウトが発生しており、これがcheckout-api関数の処理を10秒のタイムアウト上限まで引き延ばし、結果として応答遅延とエラー率上昇を引き起こしていると考えられます。\n\n**確信度:中(medium)**\nログにDynamoDB接続タイムアウトとタスクタイムアウトの相関が明確に見られるため、この因果関係は妥当性が高いですが、DynamoDB側で何が起きているか(スロットリング、ネットワーク障害、リージョン側の問題など)まではログから特定できていません。DynamoDB側の状態を追加調査することを推奨します。"
+      },
+      {
+        "id": "vague-ja-07",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want insufficient_information, got insufficient_information"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want None, got None"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want False, got False"
+          },
+          {
+            "check": "avoids:get_function_metrics",
+            "passed": true,
+            "detail": "called nothing"
+          },
+          {
+            "check": "avoids:get_recent_logs",
+            "passed": true,
+            "detail": "called nothing"
+          },
+          {
+            "check": "no_invented_cause:invoice-batch",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:根本原因",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "mentions:？",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "abstains",
+            "passed": true,
+            "detail": "did not ask for anything"
+          },
+          {
+            "check": "language:ja",
+            "passed": true,
+            "detail": "not Japanese"
+          }
+        ],
+        "tokens": 1273,
+        "tool_calls": 0,
+        "classification": "{\"category\": \"insufficient_information\", \"function_name\": null, \"needs_telemetry\": false, \"urgency\": \"high\", \"rationale\": \"The customer reports that batch processing is not working and requests urgent confirmation, but does not name the specific resource or function; without a named resource, telemetry cannot be queried and the issue category cannot be determined.\"}",
+        "answer": "対象のリソース名が記載されていないため、まだ調査を開始できません。どの関数・サービスで発生していますか。名前が分かればメトリクスを直接確認できます。"
+      },
+      {
+        "id": "howto-en-08",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want how_to_or_guidance, got how_to_or_guidance"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want None, got None"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want False, got False"
+          }
+        ],
+        "tokens": 1256,
+        "tool_calls": 0,
+        "classification": "{\"category\": \"how_to_or_guidance\", \"function_name\": null, \"needs_telemetry\": false, \"urgency\": \"low\", \"rationale\": \"The customer is asking how to perform a task (raise memory limit) without naming a specific function or reporting a problem; this is a guidance question.\"}",
+        "answer": null
+      },
+      {
+        "id": "howto-ja-09",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want how_to_or_guidance, got how_to_or_guidance"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want None, got None"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want False, got False"
+          }
+        ],
+        "tokens": 1283,
+        "tool_calls": 0,
+        "classification": "{\"category\": \"how_to_or_guidance\", \"function_name\": null, \"needs_telemetry\": false, \"urgency\": \"low\", \"rationale\": \"The ticket asks for procedure instructions on how to change function timeout values ('関数のタイムアウト値を変更する手順を教えてください'), which is a request for guidance rather than reporting a failure or access problem.\"}",
+        "answer": null
+      }
+    ],
+    [
+      {
+        "id": "perf-en-01",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want performance_degradation, got performance_degradation"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want 'checkout-api', got 'checkout-api'"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want True, got True"
+          },
+          {
+            "check": "calls:get_function_metrics",
+            "passed": true,
+            "detail": "called ['get_function_metrics', 'get_recent_logs']"
+          },
+          {
+            "check": "calls:get_recent_logs",
+            "passed": true,
+            "detail": "called ['get_function_metrics', 'get_recent_logs']"
+          },
+          {
+            "check": "no_invented_cause:throttl",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:cold start",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:memory leak",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "mentions:timeout",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "mentions:dynamodb",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "language:en",
+            "passed": true,
+            "detail": "not English: ## Triage Summary: checkout-api\n\n**Metrics:**\n- Invocations:"
+          }
+        ],
+        "tokens": 6707,
+        "tool_calls": 2,
+        "classification": "{\"category\": \"performance_degradation\", \"function_name\": \"checkout-api\", \"needs_telemetry\": true, \"urgency\": \"high\", \"rationale\": \"The customer reports 'slow' performance on a named resource (checkout-api) during business hours ('this morning'), indicating a performance degradation affecting a critical transaction service.\"}",
+        "answer": "## Triage Summary: checkout-api\n\n**Metrics:**\n- Invocations: 128,400\n- Error rate: 8.1%\n- p99 latency: 9,850 ms\n\n**Logs (retrieved due to abnormal metrics):**\n- Repeated task timeouts at exactly 10.00 seconds (matching the function's configured timeout)\n- `ConnectTimeoutError` when connecting to DynamoDB endpoint (`dynamodb.ap-northeast-1.amazonaws.com`)\n- Memory usage (498 MB / 512 MB) was near the limit but not exceeded, so this is not a memory-exhaustion issue\n\n**Probable Root Cause:**\nThe function is timing out because it cannot establish a connection to DynamoDB in the `ap-northeast-1` region. This is causing invocations to hang until the 10-second Lambda timeout is hit, which matches both the high p99 latency and the elevated error rate.\n\n**Confidence: High** — the logs directly show connection timeouts to the DynamoDB endpoint coinciding with function-level timeouts, and the timing/duration values in the logs align precisely with the reported latency spike.\n\n**Note:** The customer described this as generic \"slowness,\" but the evidence points to a downstream dependency failure (DynamoDB connectivity), not merely gradual performance degradation. I'd recommend checking DynamoDB service health/network path (e.g., VPC endpoint, security groups, or regional DynamoDB status) in `ap-northeast-1`."
+      },
+      {
+        "id": "perm-en-02",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want permission_or_access, got permission_or_access"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want 'notify-fanout', got 'notify-fanout'"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want True, got True"
+          },
+          {
+            "check": "calls:get_function_metrics",
+            "passed": true,
+            "detail": "called ['get_function_metrics', 'get_recent_logs']"
+          },
+          {
+            "check": "calls:get_recent_logs",
+            "passed": true,
+            "detail": "called ['get_function_metrics', 'get_recent_logs']"
+          },
+          {
+            "check": "no_invented_cause:timeout",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:quota exceeded",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "mentions:accessdenied",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "mentions:sns",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "language:en",
+            "passed": true,
+            "detail": "not English: ## Triage Summary — notify-fanout\n\n**1. Function identified:"
+          }
+        ],
+        "tokens": 6377,
+        "tool_calls": 2,
+        "classification": "{\"category\": \"permission_or_access\", \"function_name\": \"notify-fanout\", \"needs_telemetry\": true, \"urgency\": \"high\", \"rationale\": \"The customer names the resource 'notify-fanout' and indicates 'something got denied', which points to a permission or access issue rather than a general failure.\"}",
+        "answer": "## Triage Summary — notify-fanout\n\n**1. Function identified:** `notify-fanout` (named explicitly in the ticket).\n\n**2. Metrics:**\n- Invocations: 45,900\n- Error rate: 31.1% (elevated)\n- p99 latency: 640 ms\n\n**3. Logs (pulled due to elevated error rate):**\n```\n[ERROR] AccessDenied: User is not authorized to perform sns:Publish\n[ERROR] AccessDenied: User is not authorized to perform sns:Publish\nRetrying (attempt 3/3)\n```\n\n**4. Probable root cause:** The function's execution role lacks permission for `sns:Publish`, causing a large share of invocations to fail with `AccessDenied` and exhaust their retries. This matches the customer's description of \"something got denied.\"\n\n**Confidence: High** — both the elevated error rate and the log contents directly corroborate an IAM permissions issue on the SNS publish call.\n\n**Recommended action:** Check the IAM policy attached to notify-fanout's execution role and add/restore `sns:Publish` permission for the target topic(s)."
+      },
+      {
+        "id": "healthy-en-03",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want errors_or_failures, got errors_or_failures"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want 'invoice-batch', got 'invoice-batch'"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want True, got True"
+          },
+          {
+            "check": "calls:get_function_metrics",
+            "passed": true,
+            "detail": "called ['get_function_metrics', 'get_recent_logs']"
+          },
+          {
+            "check": "no_invented_cause:root cause is",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:outage",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:throttl",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:misconfigur",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "mentions:healthy",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "language:en",
+            "passed": true,
+            "detail": "not English: ## Triage Result: invoice-batch\n\n**Metrics observed:**\n- Inv"
+          }
+        ],
+        "tokens": 6489,
+        "tool_calls": 2,
+        "classification": "{\"category\":\"errors_or_failures\",\"function_name\":\"invoice-batch\",\"needs_telemetry\":true,\"urgency\":\"high\",\"rationale\":\"The customer reports 'invoice-batch is throwing errors' and uses 'urgently', indicating a high-urgency failure in the named resource.\"}",
+        "answer": "## Triage Result: invoice-batch\n\n**Metrics observed:**\n- Invocations: 1,200\n- Error rate: 0.2% (0.002)\n- p99 latency: 2,100 ms\n\n**Findings:**\nThe metrics for `invoice-batch` are within normal operating range — a 0.2% error rate is low, and the p99 latency of 2.1s does not indicate a performance crisis. Because the metrics were healthy, the log-retrieval tool declined to pull logs (`skipped_by_policy`), which is not evidence of an underlying fault — it simply means there was nothing anomalous to investigate further.\n\n**Contradiction with the ticket:** The customer describes the function as \"throwing errors\" urgently, but the telemetry does not support a significant error condition. There's a discrepancy between the reported severity and the observed data.\n\n**Probable root cause:** No fault is evidenced by current telemetry. If errors are in fact occurring, they may be intermittent, recently resolved, or possibly affecting a different function/component than `invoice-batch` as monitored here.\n\n**Confidence: Low** — the tool data shows a healthy function, which conflicts with the customer's description. I'd recommend confirming the exact function name, timeframe, and error messages the customer is seeing, since the current metrics don't corroborate an active incident."
+      },
+      {
+        "id": "vague-en-04",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want insufficient_information, got insufficient_information"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want None, got None"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want False, got False"
+          },
+          {
+            "check": "avoids:get_function_metrics",
+            "passed": true,
+            "detail": "called nothing"
+          },
+          {
+            "check": "avoids:get_recent_logs",
+            "passed": true,
+            "detail": "called nothing"
+          },
+          {
+            "check": "no_invented_cause:notify-fanout",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:root cause",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:accessdenied",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "mentions:?",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "abstains",
+            "passed": true,
+            "detail": "did not ask for anything"
+          },
+          {
+            "check": "language:en",
+            "passed": true,
+            "detail": "not English: This ticket does not name a specific resource, so there is n"
+          }
+        ],
+        "tokens": 1246,
+        "tool_calls": 0,
+        "classification": "{\"category\": \"insufficient_information\", \"function_name\": null, \"needs_telemetry\": false, \"urgency\": \"medium\", \"rationale\": \"The ticket describes a symptom ('notifications aren't going out') without naming the specific resource or service responsible, leaving it impossible to query telemetry or determine the root cause.\"}",
+        "answer": "This ticket does not name a specific resource, so there is nothing to look up yet. Which function or service is affected? Naming it will let us pull its metrics directly."
+      },
+      {
+        "id": "unknown-en-05",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want errors_or_failures, got errors_or_failures"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want 'payment-api', got 'payment-api'"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want True, got True"
+          },
+          {
+            "check": "calls:get_function_metrics",
+            "passed": true,
+            "detail": "called ['get_function_metrics']"
+          },
+          {
+            "check": "no_invented_cause:root cause is",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:dynamodb",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:accessdenied",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "mentions:no such function",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "abstains",
+            "passed": true,
+            "detail": "did not ask for anything"
+          },
+          {
+            "check": "language:en",
+            "passed": true,
+            "detail": "not English: I checked telemetry for a function named **payment-api**, bu"
+          }
+        ],
+        "tokens": 4421,
+        "tool_calls": 1,
+        "classification": "{\"category\":\"errors_or_failures\",\"function_name\":\"payment-api\",\"needs_telemetry\":true,\"urgency\":\"critical\",\"rationale\":\"The customer states a named resource 'payment-api' has been down since 3am, indicating a service outage with no stated resolution, which warrants critical urgency.\"}",
+        "answer": "I checked telemetry for a function named **payment-api**, but no such resource exists in the monitoring system.\n\nCould you please confirm the exact function name? It may be registered under a different name (e.g., with a suffix, different casing, or a related service name like \"payments-service\" or \"checkout-api\"). Once you confirm the correct name, I can pull metrics and logs to investigate the outage.\n\nI can't provide a root cause yet since I have no telemetry to work from — please don't take the absence of data as confirmation that the service is up or down; it simply means I'm querying the wrong resource name."
+      },
+      {
+        "id": "perf-ja-06",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want performance_degradation, got performance_degradation"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want 'checkout-api', got 'checkout-api'"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want True, got True"
+          },
+          {
+            "check": "calls:get_function_metrics",
+            "passed": true,
+            "detail": "called ['get_function_metrics', 'get_recent_logs']"
+          },
+          {
+            "check": "calls:get_recent_logs",
+            "passed": true,
+            "detail": "called ['get_function_metrics', 'get_recent_logs']"
+          },
+          {
+            "check": "no_invented_cause:スロットリング",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:メモリリーク",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "mentions:タイムアウト",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "mentions:dynamodb",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "language:ja",
+            "passed": true,
+            "detail": "not Japanese"
+          }
+        ],
+        "tokens": 6687,
+        "tool_calls": 2,
+        "classification": "{\"category\": \"performance_degradation\", \"function_name\": \"checkout-api\", \"needs_telemetry\": true, \"urgency\": \"high\", \"rationale\": \"The customer reports 'checkout-api' is responding abnormally slowly since this morning, indicating a performance degradation issue with a named resource that can be investigated via telemetry.\"}",
+        "answer": "## 調査結果\n\n**対象機能:** checkout-api\n\n**メトリクス:**\n- 呼び出し回数: 128,400件\n- エラー率: 8.1%(通常より高い水準)\n- p99レイテンシ: 9,850ms(非常に遅い)\n\nご報告の「応答が異常に遅い」というのはメトリクス上も裏付けられています。\n\n**ログから判明した内容:**\n- 処理が10秒でタイムアウトしている(`Task timed out after 10.00 seconds`)\n- メモリ使用量は498MB/512MBで、リソース上限が原因ではなさそうです\n- タイムアウト直後に `ConnectTimeoutError: Connect timeout on endpoint URL: https://dynamodb.ap-northeast-1.amazonaws.com/` というエラーが記録されています\n\n**推定される根本原因:**\nDynamoDB(ap-northeast-1)への接続がタイムアウトしており、それが原因でcheckout-api自体の処理も10秒でタイムアウトしていると考えられます。つまり、checkout-apiの遅延はDynamoDBへの接続不良に起因している可能性が高いです。\n\n**確信度:高**\nメトリクス(高いp99レイテンシ・エラー率)とログ(タイムアウト・DynamoDB接続エラー)が一致しており、根本原因の特定は明確です。\n\n**推奨対応:**\nDynamoDBへのネットワーク接続性(VPCエンドポイント設定、セキュリティグループ、DynamoDB側の状態)を確認してください。"
+      },
+      {
+        "id": "vague-ja-07",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want insufficient_information, got insufficient_information"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want None, got None"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want False, got False"
+          },
+          {
+            "check": "avoids:get_function_metrics",
+            "passed": true,
+            "detail": "called nothing"
+          },
+          {
+            "check": "avoids:get_recent_logs",
+            "passed": true,
+            "detail": "called nothing"
+          },
+          {
+            "check": "no_invented_cause:invoice-batch",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "no_invented_cause:根本原因",
+            "passed": true,
+            "detail": "asserted as a cause"
+          },
+          {
+            "check": "mentions:？",
+            "passed": true,
+            "detail": "missing"
+          },
+          {
+            "check": "abstains",
+            "passed": true,
+            "detail": "did not ask for anything"
+          },
+          {
+            "check": "language:ja",
+            "passed": true,
+            "detail": "not Japanese"
+          }
+        ],
+        "tokens": 1292,
+        "tool_calls": 0,
+        "classification": "{\"category\": \"insufficient_information\", \"function_name\": null, \"needs_telemetry\": false, \"urgency\": \"high\", \"rationale\": \"The customer names a symptom (「バッチ処理が動いていない」- batch processing is not working) but does not name the specific function or resource they are referring to, only a general category; they do not specify whether this is a failure, performance issue, or permission problem.\"}",
+        "answer": "対象のリソース名が記載されていないため、まだ調査を開始できません。どの関数・サービスで発生していますか。名前が分かればメトリクスを直接確認できます。"
+      },
+      {
+        "id": "howto-en-08",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want how_to_or_guidance, got how_to_or_guidance"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want None, got None"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want False, got False"
+          }
+        ],
+        "tokens": 1260,
+        "tool_calls": 0,
+        "classification": "{\"category\": \"how_to_or_guidance\", \"function_name\": null, \"needs_telemetry\": false, \"urgency\": \"low\", \"rationale\": \"The ticket asks 'how do I' perform an operation, which is a request for guidance rather than a report of a problem, and no specific function is named.\"}",
+        "answer": null
+      },
+      {
+        "id": "howto-ja-09",
+        "checks": [
+          {
+            "check": "classifier_returns_json",
+            "passed": true,
+            "detail": ""
+          },
+          {
+            "check": "category",
+            "passed": true,
+            "detail": "want how_to_or_guidance, got how_to_or_guidance"
+          },
+          {
+            "check": "function_extraction",
+            "passed": true,
+            "detail": "want None, got None"
+          },
+          {
+            "check": "needs_telemetry",
+            "passed": true,
+            "detail": "want False, got False"
+          }
+        ],
+        "tokens": 1256,
+        "tool_calls": 0,
+        "classification": "{\"category\":\"how_to_or_guidance\",\"function_name\":null,\"needs_telemetry\":false,\"urgency\":\"medium\",\"rationale\":\"The customer is asking for procedural guidance on how to change a function's timeout value; they are asking for documentation or instruction, not reporting a problem.\"}",
+        "answer": null
+      }
+    ]
+  ]
+}
