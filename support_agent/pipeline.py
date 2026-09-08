@@ -55,6 +55,29 @@ def _is_japanese(text: str) -> bool:
     return any("぀" <= ch <= "ヿ" for ch in text)
 
 
+def reply_language(ticket: str) -> str:
+    """The language the answer must be written in. Decided here, not by the model."""
+    return "Japanese" if _is_japanese(ticket) else "English"
+
+
+def triage_prompt(ticket: str) -> str:
+    """The ticket as triage should receive it, with the output language fixed.
+
+    The triage instruction used to say "answer in the language the ticket was
+    written in", and measured over five runs that held four times out of five:
+    two runs answered an English ticket about `invoice-batch` in German. Nothing
+    in the ticket was German. The model simply drifted, and the earlier language
+    check could not see it because it only tested that the reply was not
+    Japanese -- which German is not.
+
+    Detecting the script is a two-line function, so asking the model to infer it
+    was never worth the variance. The instruction now receives the answer rather
+    than the question, which is the same move as `policy.py` and `decide()`: the
+    constraint goes where the model does not get a vote.
+    """
+    return f"{ticket}\n\n[Write your entire reply in {reply_language(ticket)}.]"
+
+
 def decide(ticket: str, classifier_output: str | dict) -> Decision:
     """Turn a classifier result into a routing decision.
 
