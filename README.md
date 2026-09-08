@@ -1,6 +1,9 @@
 # agentic-support
 
-A support-triage agent built on [Google ADK](https://google.github.io/adk-docs/).
+A support-triage agent built on [Google ADK](https://google.github.io/adk-docs/),
+running on either Bedrock (Claude) or the Gemini API — ADK is the agent framework
+here, not the model provider.
+
 Given a vague inbound ticket, it decides which telemetry to pull, reads it, and
 returns a probable root cause with an explicit confidence label — or says it
 doesn't know.

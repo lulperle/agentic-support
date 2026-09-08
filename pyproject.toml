@@ -1,7 +1,7 @@
 [project]
 name = "agentic-support"
 version = "0.1.0"
-description = "A grounded support-triage agent built on Google ADK"
+description = "A grounded support-triage agent on Google ADK, running on Bedrock or Gemini"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
