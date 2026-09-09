@@ -167,7 +167,9 @@ def build_parser() -> argparse.ArgumentParser:
     q.add_argument("--newest-first", action="store_true",
                    help="default is oldest first, which is the order they age out in")
     q.add_argument("--explain", action="store_true", help="show which signals fired")
-    q.add_argument("--min-score", type=int, default=-999, help="hide tickets below this score")
+    q.add_argument("--min-score", type=int, default=-999,
+                   help="hide tickets below this effort score (not the leading "
+                        "number, which includes the age bonus)")
     q.add_argument("--no-damping", action="store_true",
                    help="score context-sensitive signals at full weight (see evals/rank.py)")
     q.add_argument("--no-aging", action="store_true",
