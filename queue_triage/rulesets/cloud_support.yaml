@@ -1,0 +1,240 @@
+# Ruleset for a general cloud-support queue.
+#
+# The weights are starting points, not measurements. `evals/rank.py` scores this
+# file against labelled tickets, so the honest way to change a number here is to
+# change it and look at what happens to the metrics.
+#
+# Patterns are case-insensitive and are searched, not matched, so they do not
+# need anchoring unless you want it (`short-subject` below does).
+
+name: cloud-support
+
+# Score -> label. Highest first; the loader enforces that.
+thresholds:
+  - {label: quick-win,   min: 6}
+  - {label: likely-easy, min: 3}
+  - {label: unclear,     min: 0}
+  - {label: time-sink,   min: -999}
+
+# Lower urgency is a weak signal that the customer is not blocked.
+severity_bonus:
+  low: 2
+  normal: 1
+  high: -2
+  urgent: -4
+  critical: -6
+
+# Named accounts get read more carefully, whatever the ticket says.
+vip_penalty: -3
+
+# A waiting ticket climbs, up to a point.
+#
+# One point a week, ceiling of four. That is enough to put a fortnight-old ticket
+# ahead of a same-day one that scored a point or two higher, and not enough to let
+# age beat the gap between a template reply and an outage. Without the ceiling this
+# collapses into first-in-first-out, which is the thing the ranker exists to
+# improve on.
+#
+# The bonus is an ordering adjustment, not part of the effort score: a ticket does
+# not become easy by being old, and the label should not start claiming it did.
+aging:
+  days_per_point: 7
+  max_bonus: 4
+
+# Ticket shapes to drop from the queue rather than rank.
+#
+# Not the same as a large penalty. A penalty says "this looks expensive" and leaves
+# the ticket on screen at the bottom; an exclusion says "not mine to pick up",
+# which no score can express. Both of these are handled by a different workflow
+# with its own approval chain, so the time they cost has nothing to do with how
+# hard the question is -- exactly the case scoring cannot represent.
+#
+# The dropped tickets are counted and named on stderr. Silently vanishing tickets
+# look identical to a broken query.
+#
+# Order matters only for the reason that gets reported: these two overlap heavily,
+# because a refund is usually filed as an adjustment, and the customer's own word
+# is the one worth showing back to them.
+exclusions:
+  # `refund` and friends only. An earlier draft also matched `reimburse\w*`, which
+  # pulled in "our finance team needs it for reimbursement" -- an invoice download
+  # question, filtered out for a word the customer used about their own expenses.
+  - name: refund-request
+    pattern: '\brefund(s|ed|ing|able)?\b|\bmoney back\b|\bcharge[- ]?back\b|\bcredit back to (my|the) (card|account)\b|返金|払い戻し'
+    reason: refund workflow, not a support answer
+
+  - name: billing-adjustment
+    # The separator is a character class because these arrive as prose from the
+    # customer ("a courtesy adjustment") and as a hyphenated queue category
+    # ("courtesy-adjustment"), and the second is the more reliable of the two.
+    pattern: '\b(billing|courtesy|one[- ]?time|manual)[-\s]adjustment\b|\badjust(ment)? (to|of) (my|the|our) (bill|invoice|charges?)\b'
+    reason: adjustment workflow, needs an approval chain
+
+# Signals that, once they fire, change what other signals mean.
+context_groups:
+  billing:
+    - credits
+    - credit-missing
+    - credit-missing-reversed
+    - promo-code
+    - startup-credits
+    - free-tier-charge
+    - unexpected-charge
+    - refund
+    - invoice
+    - budget-alert
+
+signals:
+
+  # ---------------------------------------------------------------- quick wins
+
+  # Credit questions are the archetypal easy ticket: the answer is a lookup plus
+  # a template and the customer rarely needs a second round.
+  #
+  # The lookahead is load-bearing. "credit card" is the single biggest false
+  # positive in this whole ruleset -- billing complaints name the card that was
+  # charged, which has nothing to do with promotional credit.
+  - name: credits
+    weight: 4
+    pattern: '\bcredits?\b(?!\s*(card|/debit|debit))'
+    note: credit balance or grant question
+
+  # Stems end in \w* so inflections match. An earlier version ended in
+  # `disappear\b`, which cannot match "disappeared" -- the most common phrasing
+  # of the exact thing it was written to catch.
+  - name: credit-missing
+    weight: 5
+    pattern: '\bcredits?\b.{0,40}?\b(missing|disappear\w*|gone|vanish\w*|expir\w*|not (applied|granted|showing|added|credited|reflected))\b'
+    note: credit did not arrive or vanished
+
+  - name: credit-missing-reversed
+    weight: 5
+    pattern: '\b(missing|expir\w*|unused|unapplied|lost)\b.{0,20}?\bcredits?\b'
+    note: same, with the words the other way round
+
+  - name: promo-code
+    weight: 4
+    pattern: '\b(promo(tional)?\s*code|voucher|coupon|redeem|redemption)\b'
+
+  - name: startup-credits
+    weight: 3
+    pattern: '\b(startup|founder|accelerator|incubator)\s+(credit|program|programme)\w*\b'
+
+  # Billing basics, answerable from the console plus the docs.
+  - name: free-tier-charge
+    weight: 4
+    pattern: '\bfree tier\b.{0,40}\b(charge|charged|bill|billed|exceed)\b'
+
+  - name: unexpected-charge
+    weight: 3
+    pattern: '\b(unexpected|unexpectedly|surprise|why (am|was) i)\b.{0,20}\b(charge|charged|billed)\b'
+
+  - name: refund
+    weight: 3
+    pattern: '\brefund(ed|s)?\b'
+
+  - name: invoice
+    weight: 2
+    pattern: '\b(invoice|receipt|billing statement|tax|VAT|GST)\b'
+
+  - name: budget-alert
+    weight: 2
+    pattern: '\b(budget|billing alert|cost anomaly)\b'
+
+  # Account administration: procedure, not debugging.
+  - name: close-account
+    weight: 3
+    pattern: '\b(close|closing|delete|cancel|terminate)\b.{0,15}\baccount\b'
+
+  - name: reactivate-account
+    weight: 3
+    pattern: '\b(reactivat|reopen|suspend|reinstate)\w*\b.{0,15}\baccount\b'
+
+  - name: root-access
+    weight: 3
+    pattern: '\b(root (user|account|password|email)|lost (my )?(password|mfa)|mfa (device|reset|lost))\b'
+
+  - name: contact-change
+    weight: 2
+    pattern: '\b(change|update)\b.{0,20}\b(email|payment method|credit card|contact|address)\b'
+
+  # Documentation pointers.
+  - name: how-to
+    weight: 2
+    pattern: '\b(how (do|can|to)|where (can|do) i|is it possible to|what is the difference)\b'
+
+  - name: quota
+    weight: 2
+    pattern: '\b(quota|service limit|limit increase|vcpu limit)\b'
+
+  # A short single question tends to have a short single answer.
+  #
+  # `scope` is required on both structural signals. Without it the pattern runs
+  # against every field joined by newlines, where `^...$` can never match, and the
+  # signal is dead code that looks like a signal which merely did not apply.
+  - name: short-subject
+    weight: 1
+    scope: subject
+    pattern: '^.{0,45}$'
+    note: terse subject
+
+  # ---------------------------------------------------------------- time sinks
+
+  - name: outage
+    weight: -6
+    pattern: '\b(production (is )?down|outage|complete(ly)? (down|unavailable)|urgent|asap|critical|business impact)\b'
+
+  - name: stack-trace
+    weight: -4
+    pattern: '(Traceback \(most recent call last\)|\bat [a-z]+\.[a-z]+\.[A-Z]\w+\(|Caused by:|errno \d+)'
+
+  # NAT gateways are deliberately absent from this pattern. They are the classic
+  # surprise-bill line item, so they appear in easy billing tickets far more often
+  # than in hard networking ones.
+  - name: deep-network
+    weight: -5
+    pattern: '\b(transit gateway|vpc peering|direct connect|bgp|route table|mtu|site-to-site|vpn tunnel)\b'
+    damped_by: billing
+
+  - name: iam-debug
+    weight: -4
+    pattern: '\b(assume ?role|trust policy|permission boundary|service control polic|resource polic|condition key)\b'
+    damped_by: billing
+
+  - name: performance
+    weight: -4
+    pattern: '\b(latency|throughput|slow (quer|respons|perform)|timeout|throttl|bottleneck|degrad)\w*\b'
+    damped_by: billing
+
+  - name: kubernetes
+    weight: -4
+    pattern: '\b(kubernetes|k8s|eks|helm|istio|kubelet|karpenter)\b'
+    damped_by: billing
+
+  - name: data-loss
+    weight: -5
+    pattern: '\b(data loss|corrupt|cannot recover|accidentally deleted|restore .{0,20}backup)\b'
+
+  - name: migration
+    weight: -3
+    pattern: '\b(migrat|cutover|proof of concept|architecture review|design review)\w*\b'
+
+  - name: long-subject
+    weight: -2
+    scope: subject
+    pattern: '^.{160,}$'
+    note: sprawling subject line
+
+  # Suspected fraud reads as a billing question and is not one: the person writing
+  # in may not own the account, so it needs identity verification before anything
+  # else and usually a different team. Added after the eval showed the
+  # credit-card ticket producing every badly inverted pair on the set.
+  - name: suspected-fraud
+    weight: -5
+    pattern: '\b(unauthori[sz]ed|did not authori[sz]e|fraudulent|stolen (card|account)|(never|not) (used|opened|created) (this|an) account|someone else)\b'
+    note: needs identity verification first
+
+  - name: multi-service
+    weight: -2
+    pattern: '\b(and|\+|,)\b.{0,30}\b(EC2|S3|RDS|Lambda|VPC|IAM|EKS|ECS|CloudFront|DynamoDB)\b.{0,60}\b(EC2|S3|RDS|Lambda|VPC|IAM|EKS|ECS|CloudFront|DynamoDB)\b'
+    damped_by: billing
