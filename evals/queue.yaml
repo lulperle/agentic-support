@@ -1,0 +1,597 @@
+# A synthetic support queue, used both as the demo dataset for `queue_triage`
+# and as the labelled set that `evals/rank.py` scores against.
+#
+# WHAT `minutes` IS
+#   A hand-set prior: roughly how long I would expect this ticket to take, based
+#   on having worked a queue that looks like this. It is not observed data.
+#
+# WHAT THAT MEANS FOR THE NUMBERS
+#   An eval against invented labels cannot tell you the ruleset is accurate. It
+#   measures self-consistency against my own prior, and that is worth exactly two
+#   things:
+#     1. Regression detection. Change a pattern, see whether the ranking moves in
+#        the direction you intended, on cases where the intent is unambiguous.
+#     2. Ablation. Turn one mechanism off and measure the delta. That claim holds
+#        regardless of whether the absolute labels are right, because both arms
+#        of the comparison are wrong in the same way.
+#   Anything phrased as "this ranker is N% accurate" would be a lie. The harness
+#   deliberately does not print such a number.
+#
+#   Replacing `minutes` with real handling times from a real queue turns this into
+#   a genuine measurement. That is the intended upgrade path, and nothing else
+#   about the harness has to change.
+#
+# The tickets are invented. Several are here specifically because the ruleset gets
+# them wrong or nearly wrong -- see `adversarial: true`.
+
+tickets:
+
+  # ------------------------------------------------------------ credits: easy
+
+  - id: T-1001
+    subject: Promotional credits disappeared from my account
+    topic: billing
+    category: credits
+    item: credit-balance
+    severity: low
+    language: en
+    queue: unassigned
+    created: "2026-08-14T09:12:00Z"
+    minutes: 15
+    correspondence: |
+      Hi, I had roughly $250 in promotional credits showing on my account last
+      week and today the balance shows zero. I have not launched anything new.
+      Could you check what happened to them?
+
+  - id: T-1002
+    subject: Cannot redeem promo code
+    topic: billing
+    category: credits
+    item: promo-code
+    severity: low
+    language: en
+    queue: unassigned
+    created: "2026-08-15T11:40:00Z"
+    minutes: 20
+    correspondence: |
+      I received a promotional code from a conference and the redemption page
+      says it is invalid. The code is CONF-EXAMPLE-2026. Has it already been
+      used, or is it restricted to new accounts?
+
+  - id: T-1003
+    subject: Startup program credits not applied to my January invoice
+    topic: billing
+    category: credits
+    item: startup-program
+    severity: low
+    language: en
+    queue: unassigned
+    created: "2026-08-15T14:02:00Z"
+    minutes: 25
+    correspondence: |
+      We were approved for the startup credit program in December and the
+      welcome email says $5,000 in credits. The January invoice charges the full
+      amount with no credits applied. Can you confirm the credits are attached
+      to the right account?
+
+  - id: T-1004
+    subject: Free tier ended and I was billed unexpectedly
+    topic: billing
+    category: free-tier
+    item: unexpected-charge
+    severity: low
+    language: en
+    queue: unassigned
+    created: "2026-08-16T03:20:00Z"
+    minutes: 20
+    correspondence: |
+      My free tier eligibility ended last month and I was charged $12.40 without
+      any warning. I am a student and I only used this for a class project.
+      Could you explain what the charge is for?
+
+  - id: T-1005
+    subject: Can my expired credits be reinstated
+    topic: billing
+    category: credits
+    item: credit-expiry
+    severity: low
+    language: en
+    queue: unassigned
+    created: "2026-08-17T08:55:00Z"
+    minutes: 30
+    correspondence: |
+      My credits expired at the end of last month but the dashboard had shown an
+      expiry date six months later. I was planning the work around that date.
+      Is there any way to have them reinstated?
+
+  # ------------------------------------------------------- billing: easy-ish
+
+  - id: T-1006
+    subject: Where do I download my invoice
+    topic: billing
+    category: invoice
+    item: download
+    severity: low
+    language: en
+    queue: unassigned
+    created: "2026-08-17T10:30:00Z"
+    minutes: 10
+    correspondence: |
+      How do I get a PDF invoice for last month? Our finance team needs it for
+      reimbursement.
+
+  - id: T-1007
+    subject: Need a tax receipt showing our VAT number
+    topic: billing
+    category: invoice
+    item: tax
+    severity: low
+    language: en
+    queue: unassigned
+    created: "2026-08-18T07:45:00Z"
+    minutes: 25
+    correspondence: |
+      Our invoices do not show our company VAT number, which our accountant says
+      we need in order to reclaim the tax. Where do I add it, and can the
+      previous three invoices be reissued?
+
+  - id: T-1008
+    subject: Budget alert did not fire
+    topic: billing
+    category: budget
+    item: alerting
+    severity: normal
+    language: en
+    queue: unassigned
+    created: "2026-08-18T13:10:00Z"
+    minutes: 50
+    adversarial: true
+    adversarial_note: >
+      Reads like a two-minute billing question and scores like one, but answering
+      it means checking the threshold, the notification target, and whether the
+      subscription was ever confirmed. Configuration questions dressed as billing
+      questions are where this ruleset is weakest.
+    correspondence: |
+      I set a budget of $50 and spend reached $80 without any email arriving.
+      The budget shows as active in the console. What did I configure wrong?
+
+  # ------------------------------------------------ billing: adversarial cases
+
+  - id: T-1009
+    subject: Unauthorised charge of $27.40 on credit card
+    topic: billing
+    category: fraud
+    item: unauthorised-charge
+    severity: normal
+    language: en
+    queue: unassigned
+    created: "2026-08-19T02:15:00Z"
+    minutes: 90
+    adversarial: true
+    adversarial_note: >
+      The phrase "credit card" made an earlier version of the ruleset score this
+      as a credits question worth +6. It is a suspected-fraud case: the account
+      may not belong to the person writing in, so it needs identity checks and a
+      different team. The negative lookahead in the `credits` pattern exists
+      because of this shape of ticket.
+    correspondence: |
+      There is a charge of $27.40 on my credit card that I did not authorise. I
+      do not believe I have ever used this service. Please cancel whatever this
+      is and refund the charge.
+
+  - id: T-1010
+    subject: Refund request for instance left running by accident
+    topic: billing
+    category: refund
+    item: courtesy-adjustment
+    severity: low
+    language: en
+    queue: unassigned
+    created: "2026-08-19T09:33:00Z"
+    minutes: 35
+    adversarial: true
+    adversarial_note: >
+      Names a NAT gateway, which an earlier ruleset read as deep networking and
+      penalised by -5, sorting a routine refund below genuinely hard tickets. Two
+      fixes came out of it: NAT gateway left the networking pattern entirely, and
+      the remaining service-name penalties became dampable.
+    correspondence: |
+      I left a test instance running for three weeks by mistake, and there is
+      also a NAT gateway charge I did not realise was hourly. The total is about
+      $210. Is a one-time courtesy adjustment possible? I have shut everything
+      down.
+
+  - id: T-1034
+    subject: Refund for Direct Connect port hours we never used
+    topic: billing
+    category: refund
+    item: courtesy-adjustment
+    severity: low
+    language: en
+    queue: unassigned
+    created: "2026-08-19T16:20:00Z"
+    minutes: 40
+    adversarial: true
+    adversarial_note: >
+      The ticket the damping mechanism exists for, and the dataset had no example
+      of it until the ablation reported a delta of exactly zero. A billing request
+      that names a genuinely hard service: without damping, `deep-network` takes
+      -5 off a 40-minute refund and drops it below the outage tickets.
+    correspondence: |
+      We provisioned a Direct Connect virtual interface in June for an evaluation
+      that we cancelled before using it. We have been billed port hours for two
+      months. The connection was never carrying traffic. Could these charges be
+      refunded?
+
+  # ------------------------------------------------------ account admin: easy
+
+  - id: T-1011
+    subject: How do I close my account
+    topic: account
+    category: closure
+    item: close
+    severity: low
+    language: en
+    queue: unassigned
+    created: "2026-08-20T06:05:00Z"
+    minutes: 10
+    correspondence: |
+      I no longer need this account. How do I close it, and will I be billed for
+      the current partial month?
+
+  - id: T-1012
+    subject: Lost MFA device and cannot sign in as root
+    topic: account
+    category: access
+    item: mfa-reset
+    severity: normal
+    language: en
+    queue: unassigned
+    created: "2026-08-20T15:22:00Z"
+    minutes: 40
+    correspondence: |
+      My phone was replaced and I no longer have the authenticator entry for the
+      root user. I still have access to the registered email address. How do I
+      reset the MFA device?
+
+  - id: T-1013
+    subject: Change the email address on my account
+    topic: account
+    category: contact
+    item: email-change
+    severity: low
+    language: en
+    queue: unassigned
+    created: "2026-08-21T04:48:00Z"
+    minutes: 15
+    correspondence: |
+      I need to update the contact email on the account because the old mailbox
+      has been decommissioned.
+
+  - id: T-1014
+    subject: Reactivate my suspended account
+    topic: account
+    category: suspension
+    item: reinstate
+    severity: normal
+    language: en
+    queue: unassigned
+    created: "2026-08-21T12:00:00Z"
+    minutes: 35
+    correspondence: |
+      My account was suspended for non-payment. I have now paid the outstanding
+      invoice. How long until it is reactivated, and will my data still be there?
+
+  # -------------------------------------------------------- docs and quotas
+
+  - id: T-1015
+    subject: What is the difference between the two SSD volume types
+    topic: technical
+    category: storage
+    item: guidance
+    severity: low
+    language: en
+    queue: unassigned
+    created: "2026-08-22T08:14:00Z"
+    minutes: 15
+    correspondence: |
+      We are choosing a volume type for a small database and I am not sure which
+      of the two general purpose SSD types to pick. Is it just price?
+
+  - id: T-1016
+    subject: How can I list every object in a bucket
+    topic: technical
+    category: storage
+    item: guidance
+    severity: low
+    language: en
+    queue: unassigned
+    created: "2026-08-22T10:41:00Z"
+    minutes: 15
+    correspondence: |
+      Is it possible to get a full listing of a bucket with about two million
+      objects without paginating manually?
+
+  - id: T-1017
+    subject: vCPU limit increase request
+    topic: account
+    category: quota
+    item: limit-increase
+    severity: normal
+    language: en
+    queue: unassigned
+    created: "2026-08-23T05:30:00Z"
+    minutes: 20
+    correspondence: |
+      We need our on-demand vCPU quota raised from 32 to 128 in one region for a
+      batch job next week.
+
+  # ------------------------------------------------------------- time sinks
+
+  - id: T-1018
+    subject: Production is down, complete outage, urgent business impact
+    topic: technical
+    category: availability
+    item: outage
+    severity: critical
+    language: en
+    queue: unassigned
+    created: "2026-08-23T22:58:00Z"
+    minutes: 240
+    correspondence: |
+      Our entire customer-facing platform has been unavailable for forty minutes.
+      Health checks fail across two availability zones. We are losing orders.
+      Please call the number on the account.
+
+  - id: T-1019
+    subject: BGP session flapping on Direct Connect
+    topic: technical
+    category: networking
+    item: direct-connect
+    severity: high
+    language: en
+    queue: unassigned
+    created: "2026-08-24T07:10:00Z"
+    minutes: 300
+    correspondence: |
+      Our BGP session drops every few minutes on one of the two virtual
+      interfaces. MTU is 9001 on both ends and the router config has not changed.
+      Logs from our side are attached.
+
+  - id: T-1020
+    subject: Transit gateway route propagation broken between two VPCs
+    topic: technical
+    category: networking
+    item: transit-gateway
+    severity: high
+    language: en
+    queue: unassigned
+    created: "2026-08-24T11:26:00Z"
+    minutes: 260
+    correspondence: |
+      Routes from one attached VPC stopped appearing in the transit gateway route
+      table after we changed the association. Traffic in the other direction is
+      fine. The route table shows the prefix as blackholed.
+
+  - id: T-1021
+    subject: Intermittent latency spikes with timeouts and degraded throughput
+    topic: technical
+    category: performance
+    item: latency
+    severity: high
+    language: en
+    queue: unassigned
+    created: "2026-08-25T03:44:00Z"
+    minutes: 220
+    correspondence: |
+      Twice a day, request latency goes from 40ms to over 8 seconds for about ten
+      minutes and we see timeouts. Throughput drops at the same time. Nothing in
+      our deploy history lines up with it.
+
+  - id: T-1022
+    subject: Pods stuck in pending, kubelet errors, autoscaler not adding nodes
+    topic: technical
+    category: containers
+    item: kubernetes
+    severity: high
+    language: en
+    queue: unassigned
+    created: "2026-08-25T09:02:00Z"
+    minutes: 280
+    correspondence: |
+      Our Kubernetes cluster stopped scaling. Pods sit in pending, the kubelet on
+      existing nodes logs registration errors, and the autoscaler reports no
+      matching node template. This started after a version upgrade.
+
+  - id: T-1023
+    subject: AssumeRole denied by a trust policy condition key
+    topic: technical
+    category: security
+    item: iam
+    severity: normal
+    language: en
+    queue: unassigned
+    created: "2026-08-26T06:20:00Z"
+    minutes: 150
+    correspondence: |
+      Cross-account AssumeRole fails with an explicit deny. The trust policy has a
+      condition key on the source identity and we cannot work out which side is
+      not sending it. Both role documents are attached.
+
+  - id: T-1024
+    subject: Accidentally deleted a table, need to restore from backup
+    topic: technical
+    category: database
+    item: restore
+    severity: urgent
+    language: en
+    queue: unassigned
+    created: "2026-08-26T18:37:00Z"
+    minutes: 180
+    correspondence: |
+      A script dropped the wrong table in production about an hour ago. We have
+      point-in-time recovery enabled. What is the fastest path to restore it
+      without losing the writes that came after?
+
+  - id: T-1025
+    subject: Migration cutover plan review before we move the primary database
+    topic: technical
+    category: migration
+    item: architecture-review
+    severity: normal
+    language: en
+    queue: unassigned
+    created: "2026-08-27T08:00:00Z"
+    minutes: 300
+    correspondence: |
+      We are cutting over our primary database next month and would like a review
+      of the plan, particularly the rollback path and the replication lag
+      thresholds we should treat as abort conditions.
+
+  - id: T-1026
+    subject: Function fails with a traceback after the runtime upgrade
+    topic: technical
+    category: compute
+    item: serverless
+    severity: normal
+    language: en
+    queue: unassigned
+    created: "2026-08-27T14:52:00Z"
+    minutes: 160
+    correspondence: |
+      Since moving to the newer runtime our function fails intermittently:
+
+        Traceback (most recent call last):
+          File "/var/task/handler.py", line 42, in handler
+            return process(event)
+        RuntimeError: connection pool exhausted
+
+      It works locally and fails about one invocation in twenty.
+
+  - id: T-1027
+    subject: Static site returns 403 through the CDN but the bucket policy looks right
+    topic: technical
+    category: storage
+    item: permissions
+    severity: normal
+    language: en
+    queue: unassigned
+    created: "2026-08-28T05:15:00Z"
+    minutes: 100
+    correspondence: |
+      Requests through the distribution return 403 while direct requests to the
+      bucket succeed for our own credentials. The bucket policy grants the
+      distribution's service principal. We have invalidated the cache twice.
+
+  - id: T-1028
+    subject: Errors reaching the queue from Lambda and EC2 but S3 access works
+    topic: technical
+    category: networking
+    item: endpoints
+    severity: normal
+    language: en
+    queue: unassigned
+    created: "2026-08-28T11:48:00Z"
+    minutes: 140
+    correspondence: |
+      Both our Lambda functions and our EC2 instances time out talking to the
+      queue service, while S3 calls from the same subnets are fine. We use
+      interface endpoints for all three.
+
+  - id: T-1035
+    subject: >-
+      URGENT please help - getting AccessDenied when my application tries to
+      write to the bucket from the container running in the cluster, worked
+      yesterday, nothing changed on our side, we have a release tonight and this
+      is blocking everything, error message pasted below
+    topic: technical
+    category: security
+    item: permissions
+    severity: high
+    language: en
+    queue: unassigned
+    created: "2026-08-28T19:05:00Z"
+    minutes: 190
+    correspondence: |
+      AccessDenied on PutObject. The task role has the policy attached and I have
+      checked it three times. There is also a permission boundary on the role
+      which I did not create. Release is tonight.
+
+  # ---------------------------------------------------- misleadingly terse
+
+  - id: T-1029
+    subject: Charge wrong
+    topic: billing
+    category: unknown
+    item: unknown
+    severity: normal
+    language: en
+    queue: unassigned
+    created: "2026-08-29T02:30:00Z"
+    minutes: 45
+    adversarial: true
+    adversarial_note: >
+      Collects the `short-subject` bonus for being terse when the real reason it
+      is terse is that it says nothing. Length is a proxy for clarity and this is
+      the case where the proxy breaks; the bonus is only +1 because of tickets
+      like this one.
+    correspondence: |
+      The charge on my account is wrong, please fix. Account is new. Thank you.
+
+  - id: T-1030
+    subject: Billing question
+    topic: billing
+    category: unknown
+    item: unknown
+    severity: normal
+    language: en
+    queue: unassigned
+    is_vip: true
+    created: "2026-08-29T09:10:00Z"
+    minutes: 80
+    correspondence: |
+      Our monthly spend went up by roughly 30% and we cannot attribute it to any
+      change on our side. Can someone walk through the breakdown with us on a
+      call this week?
+
+  # ------------------------------------- excluded by the default queue filter
+
+  - id: T-1031
+    subject: test case please ignore
+    topic: other
+    category: test
+    item: test
+    severity: low
+    language: en
+    queue: unassigned
+    created: "2026-08-30T01:00:00Z"
+    minutes: 1
+    correspondence: |
+      test case, disregard.
+
+  - id: T-1032
+    subject: 請求書のダウンロード方法について
+    topic: billing
+    category: invoice
+    item: download
+    severity: low
+    language: ja
+    queue: unassigned
+    created: "2026-08-30T02:00:00Z"
+    minutes: 15
+    correspondence: |
+      先月分の請求書をPDFで取得する方法を教えてください。
+
+  - id: T-1033
+    subject: Credits missing after account merge
+    topic: billing
+    category: credits
+    item: credit-balance
+    severity: low
+    language: en
+    queue: assigned
+    created: "2026-08-30T03:00:00Z"
+    minutes: 25
+    correspondence: |
+      After consolidating our accounts the credit balance no longer appears on
+      the payer account.

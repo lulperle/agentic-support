@@ -11,6 +11,12 @@ doesn't know.
 The interesting part is not the answer. It's that every tool call is visible and
 every factual claim is traceable to a tool result.
 
+There is a second half with no model in it at all. [`queue_triage/`](queue_triage/)
+ranks an entire queue by how cheap each ticket looks to close, so *which* ticket to
+open first is decided before the agent is involved — deterministically, with every
+score explainable as a list of rules that fired. See
+[Before the agent](#before-the-agent-which-ticket-first).
+
 ## Why
 
 I handle cloud support tickets for a living. The first ten minutes of a ticket are
@@ -231,12 +237,21 @@ support_agent/
   sla.py          priority matrix and the business-hours clock
   quality.py      post-hoc review of handled tickets -> scorecard
   mock_infra.py   the only file that knows what the backing systems are
+queue_triage/     the step before triage: rank a queue by estimated effort
+  query.py        search expression -> AST, no backend knowledge
+  emit.py         AST -> predicate or JSON; one function per backend's quirks
+  rules.py        ruleset loader; signals are data, not code
+  score.py        weighted signals -> score, label, and why
+  backends.py     a backend is two methods; the bundled one reads YAML
+  rulesets/       cloud_support.yaml -- the weights, editable without a build
 scripts/
   ask.py          CLI runner -- prints the tool trace and token cost
 evals/
   tickets.yaml    labelled tickets, expectations written before the run
   run.py          harness -- scores both stages, reports cost and stability
-tests/            55+ deterministic tests, no API key needed
+  queue.yaml      labelled queue: synthetic tickets with effort labels
+  rank.py         ranking harness -- rank agreement, ablation, per-signal checks
+tests/            160+ deterministic tests, no API key needed
 ```
 
 ## The parts that are not AI
@@ -277,11 +292,150 @@ whole batch, including tickets that never got a first response at all —
 excluding them would let the worst tickets improve the number, which is how a
 metric ends up pointing the wrong way.
 
+## Before the agent: which ticket first
+
+[`queue_triage/`](queue_triage/) answers the question that comes before any of the
+above. Forty untouched tickets, one of you, and no signal about which are
+twenty-minute answers and which will eat the afternoon. Sorting by age puts the
+oldest first; sorting by severity trusts a field the customer filled in.
+
+It is deliberately not an agent. No model, no network, and every score is a list
+of rules that fired with a weight attached:
+
+```bash
+uv run python -m queue_triage queue --explain
+```
+
+```
+[+19] quick-win    T-1003  Startup program credits not applied to my January invoice  (+16 effort, +3 waited-24d)
+       +5 credit-missing -- 'credits not applied'  (credit did not arrive or vanished)
+       +4 credits -- 'credits'  (credit balance or grant question)
+       +3 startup-credits -- 'Startup program'
+       +2 invoice -- 'invoice'
+       +2 severity:low
+       +3 waited-24d  (aging, order only)
+
+[ +3] unclear      T-1009  Unauthorised charge of $27.40 on credit card  (+0 effort, +3 waited-21d)
+       -5 suspected-fraud -- 'Unauthorised'  (needs identity verification first)
+       +3 refund -- 'refund'
+       +1 short-subject -- 'Unauthorised charge of $27.40 on credit card'  (terse subject)
+       +1 severity:normal
+       +3 waited-21d  (aging, order only)
+      x   would be excluded: refund-request -- refund workflow, not a support answer
+      !   known-hard example: The phrase "credit card" made an earlier version of
+          the ruleset score this as a credits question worth +6...
+```
+
+The second one is why the explanation is not decoration. `credit card` contains
+`credit`, so an early version scored a suspected-fraud dispute as a routine credit
+question and sorted it into the quick wins. Reading the per-signal breakdown found
+it; a test would only have found it if I had already thought of it.
+
+**Two things sit outside the score, on purpose.** How long a ticket has waited, and
+whether it is a shape the queue should not be offering at all.
+
+Age is a fairness constraint, not evidence about effort. A ticket gains a point a
+week up to a ceiling of four, which is enough to put a fortnight-old ticket ahead
+of a same-day one that scored a point or two higher, and not enough to let age beat
+the gap between a template reply and an outage — without the ceiling this collapses
+into first-in-first-out, which is the thing the ranker exists to improve on. The
+bonus lands in `Verdict.adjustments` rather than `Verdict.score`, so a ticket never
+becomes a `quick-win` by sitting in the queue, and the sort falls back to the
+creation date before the ticket id, so among equally cheap tickets the one that has
+been waiting longest is offered first.
+
+Exclusions are the other layer: refunds and billing adjustments are dropped rather
+than penalised. A penalty says "this looks expensive" and leaves the ticket on
+screen at the bottom, which is not what "someone else's workflow" means — no score
+can express that, whatever the number. The dropped tickets are counted and named on
+stderr (`dropped 3: 3x refund-request`) because a ticket that vanishes silently is
+indistinguishable from a broken query, and `--keep-excluded` brings them back.
+
+Neither layer touches the measured path. `evals/rank.py` scores every ticket,
+including the ones the queue hides, and runs with aging off — and there are
+[tests that keep it that way](tests/test_rank_eval.py). That matters in both
+directions: two of the adversarial cases are refund requests and are the sharpest
+tests of the damping mechanism in the set, and the labelled tickets happen to be
+written oldest-easiest, so letting age into `score` would have lifted the agreement
+number without the ruleset getting any better. Adding both layers moved the eval by
+exactly nothing, which is the point.
+
+**Why a ruleset and not a classifier.** A model would probably rank these better.
+It would also cost a call per ticket, take a second per ticket, and answer "why is
+this at the top" with a plausible sentence rather than an audit trail. For a
+ranking that only has to be roughly right, and that a human overrides for free by
+picking a different row, the deterministic version is the better trade. The
+[ruleset is a YAML file](queue_triage/rulesets/cloud_support.yaml) so changing a
+weight is not a code change.
+
+**The pieces.** The query compiler stops at an AST
+([`query.py`](queue_triage/query.py)) and the backend-specific encoding lives in
+[`emit.py`](queue_triage/emit.py). That split is the whole design: every real
+search API has quirks in how it wants a nested boolean tree encoded, and those
+quirks return plausible wrong answers rather than errors. The one worth naming is
+that an unquoted multi-word value is often tokenised and OR'd, so `body:missing
+credits` matches *more* than `body:credits` — a filter that reads like a narrowing
+is a widening. With an AST in between, the parser has one job and each backend's
+weirdness is one function. A backend is two methods; the bundled one reads a YAML
+file, so everything above runs with no credentials.
+
+### What the ranking eval found
+
+```bash
+uv run python -m evals.rank --signals --ablate
+```
+
+The ground truth is a hand-set prior, not observed handling time, which bounds
+what can be claimed: rank agreement and ablation deltas, not accuracy. The
+harness prints no accuracy figure and a
+[test asserts it never starts to](tests/test_rank_eval.py).
+
+Current numbers on 32 labelled tickets — Spearman **+0.845**, no quick ticket
+ranked below a hard one, top five all genuinely quick. But the interesting output
+was the diagnostics, which found three real defects:
+
+**Two signals had never fired, and looked identical to two that simply did not
+apply.** `short-subject` and `long-subject` measure how long the subject line is,
+using `^.{0,45}$`. They ran against every field joined by newlines, where `.` does
+not cross a newline and so the pattern cannot match — ever. Both were dead code
+from the day they were written. The fix was to give signals a `scope`, which is
+now required for anything measuring a field's shape rather than its content.
+`short-subject` went from 0 firings to 16.
+
+**One ticket produced every badly inverted pair on the set.** The credit-card
+fraud dispute, still scoring +4 after the false positive above was patched.
+Suspected fraud reads as a billing question and is not one — the person writing in
+may not own the account. Adding a `suspected-fraud` signal took badly inverted
+pairs from 4 to 0 and Spearman from +0.810 to +0.845.
+
+**The ablation on context damping came back at exactly zero, and the mechanism was
+not the problem.** Damping halves service-name penalties when a billing signal has
+already fired, because a customer disputing a bill names whichever line item
+surprised them. It measured as worth nothing because *the dataset had no example
+of the case it exists for* — the one ticket I thought covered it named a NAT
+gateway, which had already been removed from the networking pattern for the same
+reason. A billing ticket naming Direct Connect port hours now covers it. The
+honest number is still small (+0.003 Spearman, one ticket's worth), and it is
+reported that way rather than rounded up into a claim.
+
+The per-signal report is the check I would keep if I could keep only one: for each
+signal, the mean label of the tickets it fires on against the mean of those it
+does not. A positive weight whose tickets take *longer* than average has its sign
+wrong, and no amount of tuning the magnitude fixes that. It also refuses to make
+that call below three firings, because one ticket landing above or below the mean
+is a coin flip, not evidence.
+
 ## Continuous integration
 
 [CI](.github/workflows/ci.yml) runs the deterministic half on every push: the
-priority matrix, the business clock, the scorecard, and the eval harness's own
-scoring logic. No credentials, no model calls, no flakiness.
+priority matrix, the business clock, the scorecard, the eval harness's own scoring
+logic, and all of `queue_triage` including its ranking eval. No credentials, no
+model calls, no flakiness.
+
+The ranking eval belongs in CI precisely because it has no model in it. It is a
+fixed dataset through fixed rules, so any change in the numbers is a change in the
+ruleset, and the suite fails on the two things worth failing on: a signal that
+never fires, and a signal whose weight disagrees with the labels.
 
 The agent evals are *not* in CI. They cost money, they need keys, and they are
 non-deterministic — wiring them to every push would either leak a key or turn the

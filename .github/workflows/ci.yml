@@ -1,6 +1,6 @@
 name: ci
 
-# The eval suite is deliberately not run here. It needs model credentials and it
+# The *agent* eval suite is deliberately not run here. It needs model credentials and it
 # is non-deterministic, so putting it on every push would either leak a key into
 # CI or make the build fail for reasons unrelated to the commit. What CI can
 # guarantee is that the deterministic half -- the priority matrix, the
@@ -9,6 +9,9 @@ name: ci
 #
 # The agent evals run against Bedrock on demand (`--repeat 5`) and their numbers
 # go in the README with the run count attached.
+#
+# `evals.rank` is different and does run here: it scores the queue ranker, which
+# has no model in it at all.
 
 on:
   push:
@@ -34,6 +37,13 @@ jobs:
 
       - name: Run tests
         run: uv run pytest -q
+
+      - name: Run the queue ranking eval
+        # No model, no network, fixed dataset through fixed rules -- so unlike the
+        # agent evals this one belongs on every push. Any movement in the numbers
+        # is a ruleset change, and the suite fails on a signal that never fires or
+        # one whose weight disagrees with the labels.
+        run: uv run python -m evals.rank --signals --ablate
 
       - name: Check the eval suite still imports
         # tickets.yaml is parsed and the agents are constructed, so a broken
