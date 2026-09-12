@@ -19,6 +19,11 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Nothing here writes anything back. Stated rather than inherited, so that changing the
+# account-wide default from read to write later does not silently widen this token.
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -26,7 +31,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        # The only third-party action in this repository, so it is the only step whose
+        # code can change without a commit here. Pinned to the commit v5 currently
+        # resolves to: a moved tag would otherwise run different code on the next push.
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
         with:
           enable-cache: true
 
