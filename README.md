@@ -1,5 +1,7 @@
 # agentic-support
 
+**English** | [日本語](README.ja.md)
+
 A support-triage agent built on [Google ADK](https://google.github.io/adk-docs/),
 running on either Bedrock (Claude) or the Gemini API — ADK is the agent framework
 here, not the model provider.
